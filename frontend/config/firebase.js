@@ -10,6 +10,7 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -47,24 +48,34 @@ const app = initializeApp(firebaseConfig);
 let auth;
 
 try {
-  // Try to use React Native persistence if available
-  if (typeof window === 'undefined') {
-    // React Native environment
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
+  // Detect environment correctly
+  const isReactNative = Platform.OS !== 'web' && Platform.OS !== undefined;
+  
+  if (isReactNative) {
+    // React Native environment (iOS, Android via Expo)
+    try {
+      auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      });
+      console.log('✅ Firebase Auth initialized with AsyncStorage persistence');
+    } catch (rnError) {
+      console.warn('⚠️ React Native auth init failed, falling back to getAuth:', rnError.message);
+      auth = getAuth(app);
+    }
   } else {
-    // Web environment (Expo Web)
+    // Web environment (Expo Web, browsers)
     auth = getAuth(app);
     setPersistence(auth, browserLocalPersistence).catch(err => {
-      console.warn('Persistence setup warning:', err);
+      console.warn('⚠️ Web persistence setup warning:', err.message);
     });
+    console.log('✅ Firebase Auth initialized with web persistence');
   }
 } catch (error) {
   if (error.code === 'auth/already-initialize') {
+    console.log('Firebase Auth already initialized');
     auth = getAuth(app);
   } else {
-    console.error('Firebase Auth init error:', error);
+    console.error('❌ Firebase Auth init error:', error.message);
     auth = getAuth(app);
   }
 }
