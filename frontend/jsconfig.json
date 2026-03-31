@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "allowJs": true,
+    "module": "esnext",
+    "target": "es2020"
+  },
+  "include": ["**/*"]
+}
