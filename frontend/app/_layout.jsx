@@ -9,6 +9,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { initializeI18n } from '@/config/i18n';
 import i18n from '@/config/i18n';
+import { RootProvider } from '@/providers/RootProvider';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -34,9 +35,10 @@ export default function RootLayout() {
   }
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <LanguageProvider initialLanguage="en">
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <RootProvider>
+      <I18nextProvider i18n={i18n}>
+        <LanguageProvider initialLanguage="en">
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack
             screenOptions={{
               animationEnabled: true,
@@ -64,5 +66,6 @@ export default function RootLayout() {
         </ThemeProvider>
       </LanguageProvider>
     </I18nextProvider>
+    </RootProvider>
   );
 }
