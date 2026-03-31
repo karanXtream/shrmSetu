@@ -16,6 +16,10 @@ import { auth } from '../config/firebase';
  * 3. Logout: logout()
  */
 
+// Development placeholder: Store OTP in memory for validation
+let developerOTP = null;
+let developerPhoneNumber = null;
+
 export const otpService = {
   /**
    * Send OTP to phone number
@@ -40,15 +44,28 @@ export const otpService = {
       // console.log('[OTP Service] OTP sent, verification ID:', confirmationResult.verificationId);
       // return confirmationResult;
 
-      // Placeholder for development
+      // Placeholder for development - Generate and validate OTP locally
+      const generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      developerOTP = generatedOTP;
+      developerPhoneNumber = phoneNumber;
+      
+      console.log('[OTP Service] DEVELOPMENT MODE - OTP for testing:', generatedOTP);
+      
       return {
-        verificationId: 'fake-verification-id',
-        confirm: async (otp) => ({
-          user: {
-            uid: 'fake-uid',
-            phoneNumber,
-          },
-        }),
+        verificationId: 'fake-verification-id-' + Date.now(),
+        confirm: async (otp) => {
+          // Validate OTP matches
+          if (otp !== developerOTP) {
+            throw new Error('Invalid OTP. Please enter the correct code.');
+          }
+          
+          return {
+            user: {
+              uid: 'fake-uid-' + Date.now(),
+              phoneNumber,
+            },
+          };
+        },
       };
     } catch (error) {
       console.error('[OTP Service] Send OTP failed:', error);
@@ -86,8 +103,13 @@ export const otpService = {
       // console.log('[OTP Service] OTP verified, user logged in:', result.user.phoneNumber);
       // return result.user;
 
-      // Placeholder for development
+      // Placeholder for development - validate with stored OTP
       const fakeResult = await confirmationResult.confirm(otp);
+      
+      // Clear OTP after verification
+      developerOTP = null;
+      developerPhoneNumber = null;
+      
       return fakeResult.user;
     } catch (error) {
       console.error('[OTP Service] Verify OTP failed:', error);

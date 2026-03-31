@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import { useState, useContext } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +14,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation as useI18nextTranslation } from 'react-i18next';
 import { LanguageContext } from "../../context/LanguageContext";
 import BasicDetails from "../formDetails/BasicDetails";
+import { useSendOTP, useVerifyOTP } from "../../services/otpQueries";
 
 export default function CreateProfile() {
   const { t } = useI18nextTranslation();
@@ -50,6 +52,11 @@ export default function CreateProfile() {
     shopPhotos: [],
     introductoryVideo: null,
   });
+
+  // OTP mutations
+  const sendOTPMutation = useSendOTP();
+  const verifyOTPMutation = useVerifyOTP();
+  const [confirmationResult, setConfirmationResult] = useState(null);
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -122,23 +129,48 @@ export default function CreateProfile() {
     handleChange("skills", form.skills.filter((s) => s !== skillToRemove));
   };
 
-  const handleSendOTP = () => {
-    if (form.phone.length >= 10) {
+  const handleSendOTP = async () => {
+    if (form.phone.length < 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid phone number');
+      return;
+    }
+
+    try {
+      // Format phone with country code if not already
+      const phoneNumber = form.phone.startsWith('+') 
+        ? form.phone 
+        : '+91' + form.phone;
+
+      const result = await sendOTPMutation.mutateAsync(phoneNumber);
+      setConfirmationResult(result);
       setOtpSent(true);
-      console.log("OTP sent to", form.phone);
-      // TODO: Implement actual OTP API call
-    } else {
-      alert(t('messages.error'));
+      Alert.alert('OTP Sent', 'Check your phone for the OTP code');
+    } catch (error) {
+      Alert.alert('Failed to Send OTP', error.message || 'Please try again');
     }
   };
 
-  const handleVerifyOTP = () => {
-    if (otpInput.length === 6) {
+  const handleVerifyOTP = async () => {
+    if (otpInput.length !== 6) {
+      Alert.alert('Invalid OTP', 'OTP must be 6 digits');
+      return;
+    }
+
+    if (!confirmationResult) {
+      Alert.alert('Error', 'Please send OTP first');
+      return;
+    }
+
+    try {
+      await verifyOTPMutation.mutateAsync({
+        confirmationResult,
+        otp: otpInput,
+      });
+      
       setOtpVerified(true);
-      console.log("OTP verified:", otpInput);
-      // TODO: Implement actual OTP verification API call
-    } else {
-      alert(t('messages.error'));
+      Alert.alert('Success', 'Phone number verified!');
+    } catch (error) {
+      Alert.alert('Invalid OTP', error.message || 'OTP verification failed. Please try again.');
     }
   };
 
@@ -231,13 +263,17 @@ export default function CreateProfile() {
               <TouchableOpacity
                 style={[
                   styles.sendOTPButton,
-                  otpSent && styles.sendOTPButtonDisabled,
+                  (otpSent || sendOTPMutation.isPending) && styles.sendOTPButtonDisabled,
                 ]}
                 onPress={handleSendOTP}
-                disabled={otpSent}
+                disabled={otpSent || sendOTPMutation.isPending}
               >
                 <Text style={styles.sendOTPButtonText}>
-                  {otpSent ? t('createProfile.otpSent') : t('createProfile.sendOTP')}
+                  {sendOTPMutation.isPending 
+                    ? 'Sending...' 
+                    : otpSent 
+                    ? t('createProfile.otpSent') 
+                    : t('createProfile.sendOTP')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -259,10 +295,18 @@ export default function CreateProfile() {
                     />
                   </View>
                   <TouchableOpacity
-                    style={styles.verifyButton}
+                    style={[
+                      styles.verifyButton,
+                      verifyOTPMutation.isPending && styles.verifyButtonDisabled,
+                    ]}
                     onPress={handleVerifyOTP}
+                    disabled={verifyOTPMutation.isPending}
                   >
-                    <Text style={styles.verifyButtonText}>{t('createProfile.verifyOTP')}</Text>
+                    <Text style={styles.verifyButtonText}>
+                      {verifyOTPMutation.isPending 
+                        ? 'Verifying...' 
+                        : t('createProfile.verifyOTP')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
@@ -874,6 +918,11 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  verifyButtonDisabled: {
+    backgroundColor: "#ccc",
+    elevation: 0,
+    shadowOpacity: 0,
   },
   resendButton: {
     paddingVertical: 8,
