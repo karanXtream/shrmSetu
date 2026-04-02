@@ -166,10 +166,40 @@ export const locationAPI = {
   },
 };
 
+// ============ MSG91 OTP API ============
+export const msg91API = {
+  sendOtp: async (phoneNumber) => {
+    const response = await apiClient.post('/api/msg91/send-otp', { phoneNumber });
+
+    if (!response?.success) {
+      throw {
+        message: response?.msg91?.message || response?.message || 'Failed to send OTP',
+        data: response,
+      };
+    }
+
+    return response;
+  },
+
+  verifyOtp: async (phoneNumber, otp) => {
+    const response = await apiClient.post('/api/msg91/verify-otp', { phoneNumber, otp });
+
+    if (!response?.success) {
+      throw {
+        message: response?.msg91?.message || response?.message || 'Invalid OTP',
+        data: response,
+      };
+    }
+
+    return response;
+  },
+};
+
 export default {
   authAPI,
   userAPI,
   workerAPI,
   skillAPI,
   locationAPI,
+  msg91API,
 };

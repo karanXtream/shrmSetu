@@ -27,19 +27,52 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validate required config
-const requiredFields = [
-  'apiKey',
-  'authDomain',
-  'projectId',
-  'appId',
-];
+/**
+ * reCAPTCHA Configuration
+ * Required for Firebase Phone Auth in Expo
+ */
+export const RECAPTCHA_SITE_KEY = process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY;
 
-const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
-if (missingFields.length > 0) {
-  console.warn('⚠️ Missing Firebase config:', missingFields);
-  console.warn('Please add these to .env.local');
-}
+/**
+ * Validates Firebase configuration
+ * For real OTP, ALL fields must be present
+ */
+const validateFirebaseConfig = () => {
+  const requiredFields = {
+    'apiKey': 'API Key for authentication',
+    'authDomain': 'Domain for auth',
+    'projectId': 'Firebase project ID',
+    'appId': 'Firebase app ID',
+  };
+
+  const missing = [];
+  const empty = [];
+
+  Object.entries(requiredFields).forEach(([field, description]) => {
+    if (!firebaseConfig[field]) {
+      missing.push(`${field} (${description})`);
+    }
+    if (firebaseConfig[field] === 'undefined' || firebaseConfig[field] === '') {
+      empty.push(field);
+    }
+  });
+
+  if (missing.length > 0) {
+    console.warn('⚠️  Missing Firebase config fields:');
+    missing.forEach(m => console.warn(`   - ${m}`));
+    console.warn('   Fix: Add these to .env.local and restart app');
+  }
+
+  if (empty.length > 0) {
+    console.warn('⚠️  Firebase config fields are empty:', empty);
+    console.warn('   Fix: Check .env.local for undefined/empty values');
+  }
+
+  return missing.length === 0 && empty.length === 0;
+};
+
+// Run validation
+const isConfigValid = validateFirebaseConfig();
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -53,14 +86,23 @@ try {
   
   if (isReactNative) {
     // React Native environment (iOS, Android via Expo)
+    // First try to get existing auth instance (in case already initialized)
     try {
-      auth = initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage),
-      });
-      console.log('✅ Firebase Auth initialized with AsyncStorage persistence');
-    } catch (rnError) {
-      console.warn('⚠️ React Native auth init failed, falling back to getAuth:', rnError.message);
       auth = getAuth(app);
+      console.log('✅ Firebase Auth already initialized, using existing instance');
+    } catch {
+      // If getAuth fails, try fresh initialization
+      try {
+        auth = initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage),
+        });
+        console.log('✅ Firebase Auth initialized with AsyncStorage persistence');
+      } catch (rnError) {
+        console.warn('⚠️ React Native auth init error:', rnError.message);
+        // Last resort: use getAuth with default settings
+        auth = getAuth(app);
+        console.log('✅ Firebase Auth initialized with default settings');
+      }
     }
   } else {
     // Web environment (Expo Web, browsers)
@@ -71,13 +113,9 @@ try {
     console.log('✅ Firebase Auth initialized with web persistence');
   }
 } catch (error) {
-  if (error.code === 'auth/already-initialize') {
-    console.log('Firebase Auth already initialized');
-    auth = getAuth(app);
-  } else {
-    console.error('❌ Firebase Auth init error:', error.message);
-    auth = getAuth(app);
-  }
+  console.error('❌ Firebase Auth init error:', error.message);
+  // Absolute fallback
+  auth = getAuth(app);
 }
 
 /**
@@ -106,6 +144,6 @@ export const onAuthStateChange = (callback) => {
   });
 };
 
-export { app, auth, signInWithPhoneNumber, PhoneAuthProvider, signInWithCredential, signOut };
+export { app, auth, signInWithPhoneNumber, PhoneAuthProvider, signInWithCredential, signOut, isConfigValid };
 
 export default app;

@@ -11,8 +11,41 @@ import { initializeI18n } from '@/config/i18n';
 import i18n from '@/config/i18n';
 import { RootProvider } from '@/providers/RootProvider';
 
-export default function RootLayout() {
+function RootLayoutNav() {
   const colorScheme = useColorScheme();
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack
+        screenOptions={{
+          animationEnabled: true,
+          headerShown: false,
+        }}
+        initialRouteName="screens"
+      >
+        {/* Onboarding screens - NO TABS - starts here */}
+        <Stack.Screen 
+          name="screens" 
+          options={{ 
+            headerShown: false,
+            animationEnabled: false,
+          }} 
+        />
+        {/* Main app screens - WITH TABS */}
+        <Stack.Screen 
+          name="(tabs)" 
+          options={{ 
+            headerShown: false,
+            animationEnabled: true,
+          }} 
+        />
+      </Stack>
+      <StatusBar style="auto" />
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
 
   // Initialize i18next on app startup
@@ -38,34 +71,9 @@ export default function RootLayout() {
     <RootProvider>
       <I18nextProvider i18n={i18n}>
         <LanguageProvider initialLanguage="en">
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack
-            screenOptions={{
-              animationEnabled: true,
-              headerShown: false,
-            }}
-          >
-            {/* Onboarding screens - NO TABS - starts here */}
-            <Stack.Screen 
-              name="screens" 
-              options={{ 
-                headerShown: false,
-                animationEnabled: false,
-              }} 
-            />
-            {/* Main app screens - WITH TABS */}
-            <Stack.Screen 
-              name="(tabs)" 
-              options={{ 
-                headerShown: false,
-                animationEnabled: true,
-              }} 
-            />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </LanguageProvider>
-    </I18nextProvider>
+          <RootLayoutNav />
+        </LanguageProvider>
+      </I18nextProvider>
     </RootProvider>
   );
 }

@@ -5,16 +5,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
-  Alert,
+  Image,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useContext } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation as useI18nextTranslation } from 'react-i18next';
+import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from 'expo-image-picker';
 import { LanguageContext } from "../../context/LanguageContext";
 import BasicDetails from "../formDetails/BasicDetails";
-import { useSendOTP, useVerifyOTP } from "../../services/otpQueries";
 
 export default function CreateProfile() {
   const { t } = useI18nextTranslation();
@@ -28,11 +31,11 @@ export default function CreateProfile() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [skillInput, setSkillInput] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpInput, setOtpInput] = useState("");
-  const [otpVerified, setOtpVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [showExperienceDropdown, setShowExperienceDropdown] = useState(false);
   const [form, setForm] = useState({
     profilePhoto: null,
     name: "",
@@ -47,16 +50,36 @@ export default function CreateProfile() {
     confirmPassword: "",
     // Worker-specific fields
     skills: [],
-    workCertificate: null,
+    education: "",
     yearsOfExperience: "",
     shopPhotos: [],
     introductoryVideo: null,
   });
 
-  // OTP mutations
-  const sendOTPMutation = useSendOTP();
-  const verifyOTPMutation = useVerifyOTP();
-  const [confirmationResult, setConfirmationResult] = useState(null);
+  const educationOptions = [
+    { label: t('createProfile.selectEducation'), value: "" },
+    { label: t('createProfile.graduateAndAbove'), value: "graduate_above" },
+    { label: t('createProfile.diplomaITI'), value: "diploma_iti" },
+    { label: t('createProfile.twelfthPass'), value: "12th_pass" },
+    { label: t('createProfile.tenthPass'), value: "10th_pass" },
+    { label: t('createProfile.fifthPass'), value: "5th_pass" },
+    { label: t('createProfile.noFormalEducation'), value: "no_education" },
+  ];
+
+  const experienceOptions = [
+    { label: t('createProfile.selectExperience'), value: "" },
+    { label: t('createProfile.lessThan1Year'), value: "less_than_1" },
+    { label: t('createProfile.oneYear'), value: "1" },
+    { label: t('createProfile.twoYears'), value: "2" },
+    { label: t('createProfile.threeYears'), value: "3" },
+    { label: t('createProfile.fourYears'), value: "4" },
+    { label: t('createProfile.fiveYears'), value: "5" },
+    { label: t('createProfile.sixYears'), value: "6" },
+    { label: t('createProfile.sevenYears'), value: "7" },
+    { label: t('createProfile.eightYears'), value: "8" },
+    { label: t('createProfile.nineYears'), value: "9" },
+    { label: t('createProfile.tenPlusYears'), value: "10_plus" },
+  ];
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -83,9 +106,8 @@ export default function CreateProfile() {
         return false;
       }
     }
-    // Validate OTP verification
-    if (currentStep === 2 && !otpVerified) {
-      alert(typeof t('messages.error') === 'string' ? t('messages.error') : 'An error occurred');
+    if (currentStep === 2 && !form.phone) {
+      alert(typeof t('messages.error') === 'string' ? t('messages.error') : 'Please enter a phone number to continue');
       return false;
     }
     return true;
@@ -100,8 +122,14 @@ export default function CreateProfile() {
     } else {
       // All steps completed
       console.log("Profile created:", { ...form, role: selectedRole });
-      // Navigate to (tabs) for both - shows Dashboard with tabs for workers, Home for hirers
-      router.push("(tabs)");
+      // Navigate based on role
+      if (selectedRole === "hire") {
+        // Hiring users go to User/Hire page (job listings)
+        router.push("screens/user-hire");
+      } else {
+        // Workers go to dashboard
+        router.push("(tabs)");
+      }
     }
   };
 
@@ -114,8 +142,133 @@ export default function CreateProfile() {
   };
 
   const handlePhotoUpload = () => {
-    // TODO: Implement photo upload functionality
-    console.log("Upload photo pressed");
+    setShowPhotoOptions(true);
+  };
+
+  const pickFromCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        alert("Camera permission is required");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
+
+      if (!result.canceled) {
+        handleChange("profilePhoto", result.assets[0].uri);
+        setShowPhotoOptions(false);
+      }
+    } catch (error) {
+      console.error("Camera error:", error);
+      alert("Failed to capture photo");
+    }
+  };
+
+  const pickFromGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        alert("Gallery permission is required");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
+
+      if (!result.canceled) {
+        handleChange("profilePhoto", result.assets[0].uri);
+        setShowPhotoOptions(false);
+      }
+    } catch (error) {
+      console.error("Gallery error:", error);
+      alert("Failed to pick photo");
+    }
+  };
+
+  const pickShopPhotos = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        alert("Gallery permission is required to select photos");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newPhoto = result.assets[0].uri;
+        const updatedPhotos = [...form.shopPhotos, newPhoto];
+        handleChange("shopPhotos", updatedPhotos);
+        console.log("Photo added. Total photos:", updatedPhotos.length);
+      } else {
+        console.log("Photo selection cancelled");
+      }
+    } catch (error) {
+      console.error("Gallery error:", error);
+      alert("Error selecting photo: " + error.message);
+    }
+  };
+
+  const removeShopPhoto = (uri) => {
+    handleChange("shopPhotos", form.shopPhotos.filter((photo) => photo !== uri));
+  };
+
+  const pickIntroductoryVideo = async () => {
+    try {
+      setIsUploadingVideo(true);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        alert("Gallery permission is required to select videos");
+        setIsUploadingVideo(false);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const video = result.assets[0];
+        const videoDuration = video.duration ? video.duration / 1000 : 0; // Convert to seconds
+        const maxDuration = 30; // 30 seconds max
+
+        if (videoDuration > maxDuration) {
+          alert(`Video is too long! Maximum duration is ${maxDuration} seconds, but your video is ${Math.round(videoDuration)} seconds.\n\nPlease select a shorter video.`);
+          setIsUploadingVideo(false);
+          return;
+        }
+
+        handleChange("introductoryVideo", {
+          uri: video.uri,
+          duration: videoDuration,
+        });
+        console.log("Video selected. Duration:", Math.round(videoDuration), "seconds");
+      } else {
+        console.log("Video selection cancelled");
+      }
+      setIsUploadingVideo(false);
+    } catch (error) {
+      console.error("Video picker error:", error);
+      alert("Error selecting video: " + error.message);
+      setIsUploadingVideo(false);
+    }
+  };
+
+  const removeIntroductoryVideo = () => {
+    handleChange("introductoryVideo", null);
   };
 
   const handleAddSkill = () => {
@@ -129,50 +282,7 @@ export default function CreateProfile() {
     handleChange("skills", form.skills.filter((s) => s !== skillToRemove));
   };
 
-  const handleSendOTP = async () => {
-    if (form.phone.length < 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid phone number');
-      return;
-    }
 
-    try {
-      // Format phone with country code if not already
-      const phoneNumber = form.phone.startsWith('+') 
-        ? form.phone 
-        : '+91' + form.phone;
-
-      const result = await sendOTPMutation.mutateAsync(phoneNumber);
-      setConfirmationResult(result);
-      setOtpSent(true);
-      Alert.alert('OTP Sent', 'Check your phone for the OTP code');
-    } catch (error) {
-      Alert.alert('Failed to Send OTP', error.message || 'Please try again');
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (otpInput.length !== 6) {
-      Alert.alert('Invalid OTP', 'OTP must be 6 digits');
-      return;
-    }
-
-    if (!confirmationResult) {
-      Alert.alert('Error', 'Please send OTP first');
-      return;
-    }
-
-    try {
-      await verifyOTPMutation.mutateAsync({
-        confirmationResult,
-        otp: otpInput,
-      });
-      
-      setOtpVerified(true);
-      Alert.alert('Success', 'Phone number verified!');
-    } catch (error) {
-      Alert.alert('Invalid OTP', error.message || 'OTP verification failed. Please try again.');
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -220,7 +330,10 @@ export default function CreateProfile() {
             <Text style={styles.label}>{t('createProfile.profilePhotoLabel')}</Text>
             <TouchableOpacity style={styles.photoBox} onPress={handlePhotoUpload}>
               {form.profilePhoto ? (
-                <Text style={styles.photoText}>{form.profilePhoto}</Text>
+                <Image 
+                  source={{ uri: form.profilePhoto }} 
+                  style={{ width: '100%', height: '100%', borderRadius: 60 }}
+                />
               ) : (
                 <View style={styles.photoPlaceholder}>
                   <Ionicons name="camera" size={40} color="#ccc" />
@@ -243,91 +356,20 @@ export default function CreateProfile() {
           </View>
         )}
 
-        {/* Step 2: Phone + OTP Verification */}
+        {/* Step 2: Phone Number */}
         {currentStep === 2 && (
           <View>
-            {/* Phone Number */}
             <Text style={styles.label}>{t('createProfile.phoneNumber')}</Text>
-            <View style={styles.phoneInputWrapper}>
-              <View style={styles.phoneInputContainer}>
-                <Ionicons name="call-outline" size={18} color="#727784" />
-                <TextInput
-                  style={styles.phoneInput}
-                  placeholder={t('createProfile.enterPhoneNumber')}
-                  keyboardType="phone-pad"
-                  value={form.phone}
-                  onChangeText={(text) => handleChange("phone", text)}
-                  editable={!otpSent}
-                />
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.sendOTPButton,
-                  (otpSent || sendOTPMutation.isPending) && styles.sendOTPButtonDisabled,
-                ]}
-                onPress={handleSendOTP}
-                disabled={otpSent || sendOTPMutation.isPending}
-              >
-                <Text style={styles.sendOTPButtonText}>
-                  {sendOTPMutation.isPending 
-                    ? 'Sending...' 
-                    : otpSent 
-                    ? t('createProfile.otpSent') 
-                    : t('createProfile.sendOTP')}
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="call-outline" size={18} color="#727784" />
+              <TextInput
+                style={styles.input}
+                placeholder={t('createProfile.enterPhoneNumber')}
+                keyboardType="phone-pad"
+                value={form.phone}
+                onChangeText={(text) => handleChange("phone", text)}
+              />
             </View>
-
-            {/* OTP Verification Section */}
-            {otpSent && !otpVerified && (
-              <View style={styles.otpSection}>
-                <Text style={styles.label}>{t('createProfile.otp')}</Text>
-                <View style={styles.otpInputWrapper}>
-                  <View style={styles.otpInputContainer}>
-                    <Ionicons name="shield-checkmark-outline" size={18} color="#003f87" />
-                    <TextInput
-                      style={styles.otpInput}
-                      placeholder={t('createProfile.enterOTP')}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      value={otpInput}
-                      onChangeText={setOtpInput}
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.verifyButton,
-                      verifyOTPMutation.isPending && styles.verifyButtonDisabled,
-                    ]}
-                    onPress={handleVerifyOTP}
-                    disabled={verifyOTPMutation.isPending}
-                  >
-                    <Text style={styles.verifyButtonText}>
-                      {verifyOTPMutation.isPending 
-                        ? 'Verifying...' 
-                        : t('createProfile.verifyOTP')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  style={styles.resendButton}
-                  onPress={() => {
-                    setOtpSent(false);
-                    setOtpInput("");
-                  }}
-                >
-                  <Text style={styles.resendButtonText}>{t('createProfile.resendOTP')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Verified Status */}
-            {otpVerified && (
-              <View style={styles.verifiedBanner}>
-                <Ionicons name="checkmark-circle" size={24} color="#228B22" />
-                <Text style={styles.verifiedText}>{t('createProfile.otpVerified')}</Text>
-              </View>
-            )}
           </View>
         )}
 
@@ -433,13 +475,22 @@ export default function CreateProfile() {
             )}
 
             {/* Work Certificate */}
-            <Text style={styles.label}>{t('createProfile.workCertificate')}</Text>
-            <TouchableOpacity style={styles.uploadBox} onPress={() => console.log("Upload PDF")}>
-              <Ionicons name="document-outline" size={30} color="#ccc" />
-              <Text style={styles.uploadBoxText}>
-                {form.workCertificate ? t('createProfile.pdfUploaded') : t('createProfile.uploadPDF')}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.label}>{t('createProfile.educationQualification')}</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={form.education}
+                onValueChange={(value) => handleChange("education", value)}
+                style={styles.picker}
+              >
+                {educationOptions.map((option, index) => (
+                  <Picker.Item 
+                    key={index}
+                    label={option.label} 
+                    value={option.value} 
+                  />
+                ))}
+              </Picker>
+            </View>
           </View>
         )}
 
@@ -448,34 +499,86 @@ export default function CreateProfile() {
           <View>
             {/* Years of Experience */}
             <Text style={styles.label}>{t('createProfile.yearsOfExperience')}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="briefcase-outline" size={18} color="#727784" />
-              <TextInput
-                style={styles.input}
-                placeholder={t('createProfile.enterYearsOfExperience')}
-                keyboardType="numeric"
-                value={form.yearsOfExperience}
-                onChangeText={(text) => handleChange("yearsOfExperience", text)}
-              />
-            </View>
+            <TouchableOpacity 
+              style={styles.experienceDropdownButton}
+              onPress={() => setShowExperienceDropdown(true)}
+            >
+              <Ionicons name="briefcase-outline" size={20} color="#003f87" />
+              <Text style={styles.experienceDropdownButtonText}>
+                {experienceOptions.find(opt => opt.value === form.yearsOfExperience)?.label || t('createProfile.selectExperience')}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#003f87" />
+            </TouchableOpacity>
 
             {/* Shop Photos */}
             <Text style={styles.label}>{t('createProfile.shopPhotos')}</Text>
-            <TouchableOpacity style={styles.uploadBox} onPress={() => console.log("Upload photos")}>
+            <TouchableOpacity 
+              style={styles.uploadBox} 
+              onPress={pickShopPhotos}
+            >
               <Ionicons name="images-outline" size={30} color="#ccc" />
               <Text style={styles.uploadBoxText}>
-                {form.shopPhotos.length > 0 ? `${form.shopPhotos.length} Photos` : t('createProfile.uploadPhotos')}
+                {form.shopPhotos.length > 0 ? `${form.shopPhotos.length} ${t('createProfile.photosSelected')}` : t('createProfile.uploadPhotos')}
               </Text>
+              <Text style={styles.uploadBoxHint}>{t('createProfile.tapToAddMore')}</Text>
             </TouchableOpacity>
+
+            {/* Display Selected Shop Photos */}
+            {form.shopPhotos.length > 0 && (
+              <View style={styles.photosGrid}>
+                {form.shopPhotos.map((photo, index) => (
+                  <View key={index} style={styles.photoGridItem}>
+                    <Image 
+                      source={{ uri: photo }} 
+                      style={styles.photoGridImage}
+                    />
+                    <TouchableOpacity 
+                      style={styles.photoRemoveButton}
+                      onPress={() => removeShopPhoto(photo)}
+                    >
+                      <Ionicons name="close-circle" size={24} color="#ff4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {/* Introductory Video */}
             <Text style={styles.label}>{t('createProfile.introductoryVideo')}</Text>
-            <TouchableOpacity style={styles.uploadBox} onPress={() => console.log("Upload video")}>
-              <Ionicons name="videocam-outline" size={30} color="#ccc" />
-              <Text style={styles.uploadBoxText}>
-                {form.introductoryVideo ? t('createProfile.videoUploaded') : t('createProfile.uploadVideo')}
-              </Text>
-            </TouchableOpacity>
+            {isUploadingVideo ? (
+              <View style={styles.uploadBox}>
+                <ActivityIndicator size="large" color="#003f87" />
+                <Text style={styles.uploadBoxText}>{t('messages.uploading') || 'Uploading...'}</Text>
+              </View>
+            ) : form.introductoryVideo ? (
+              <View style={styles.videoContainer}>
+                <View style={styles.videoItem}>
+                  <View style={styles.videoThumbnail}>
+                    <Ionicons name="videocam" size={40} color="#003f87" />
+                  </View>
+                  <View style={styles.videoInfoContainer}>
+                    <Text style={styles.videoInfoText}>
+                      {Math.round(form.introductoryVideo.duration)}s {t('createProfile.videoSelected') || 'Video Selected'}
+                    </Text>
+                    <Text style={styles.videoHintText}>{t('createProfile.videoMaxDuration')}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.videoRemoveButton}
+                    onPress={removeIntroductoryVideo}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#ff4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.uploadBox} onPress={pickIntroductoryVideo}>
+                <Ionicons name="videocam-outline" size={30} color="#ccc" />
+                <Text style={styles.uploadBoxText}>
+                  {t('createProfile.uploadVideoText')}
+                </Text>
+                <Text style={styles.videoHintText}>{t('createProfile.videoMaxDuration')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -557,6 +660,112 @@ export default function CreateProfile() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Experience Dropdown Modal */}
+      <Modal
+        visible={showExperienceDropdown}
+        transparent={true}
+        onRequestClose={() => setShowExperienceDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.experienceDropdownOverlay}
+          activeOpacity={1}
+          onPress={() => setShowExperienceDropdown(false)}
+        >
+          <View style={styles.experienceDropdownContent}>
+            <View style={styles.experienceDropdownHeader}>
+              <Text style={styles.experienceDropdownTitle}>{t('createProfile.selectExperience')}</Text>
+              <TouchableOpacity onPress={() => setShowExperienceDropdown(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.experienceDropdownList}>
+              {experienceOptions.map((option, index) => (
+                option.value && (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.experienceDropdownItem,
+                      form.yearsOfExperience === option.value && styles.experienceDropdownItemActive,
+                    ]}
+                    onPress={() => {
+                      handleChange("yearsOfExperience", option.value);
+                      setShowExperienceDropdown(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.experienceDropdownItemText,
+                        form.yearsOfExperience === option.value && styles.experienceDropdownItemTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    {form.yearsOfExperience === option.value && (
+                      <Ionicons name="checkmark-circle" size={22} color="#003f87" />
+                    )}
+                  </TouchableOpacity>
+                )
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Photo Options Modal */}
+      <Modal
+        visible={showPhotoOptions}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPhotoOptions(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('createProfile.selectPhoto')}</Text>
+              <TouchableOpacity onPress={() => setShowPhotoOptions(false)}>
+                <Ionicons name="close" size={24} color="#003f87" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.modalOption} 
+              onPress={pickFromCamera}
+            >
+              <View style={styles.modalOptionContent}>
+                <Ionicons name="camera" size={28} color="#003f87" />
+                <View style={styles.modalOptionText}>
+                  <Text style={styles.modalOptionTitle}>{t('createProfile.takePhoto')}</Text>
+                  <Text style={styles.modalOptionSubtitle}>{t('createProfile.useCamera')}</Text>
+                </View>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.modalOption} 
+              onPress={pickFromGallery}
+            >
+              <View style={styles.modalOptionContent}>
+                <Ionicons name="image" size={28} color="#003f87" />
+                <View style={styles.modalOptionText}>
+                  <Text style={styles.modalOptionTitle}>{t('createProfile.chooseFromGallery')}</Text>
+                  <Text style={styles.modalOptionSubtitle}>{t('createProfile.selectFromDevice')}</Text>
+                </View>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.modalCancelButton}
+              onPress={() => setShowPhotoOptions(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>{t('buttons.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -572,7 +781,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     paddingHorizontal: 16,
     paddingVertical: 16,
-    paddingTop: 55,
+    paddingTop: 30,
     paddingBottom: 20,
     backgroundColor: "#fbf9f8",
     gap: 12,
@@ -816,140 +1025,60 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "500",
   },
-  // OTP Styling
-  phoneInputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
+  uploadBoxHint: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#999",
+    fontStyle: "italic",
   },
-  phoneInputContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
+  pickerWrapper: {
+    borderBottomWidth: 2,
+    borderColor: "#e0e0e0",
+    marginTop: 8,
+    marginBottom: 20,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
   },
-  phoneInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "500",
+  picker: {
+    height: 50,
+    color: "#000",
+    fontSize: 15,
   },
-  sendOTPButton: {
-    backgroundColor: "#003f87",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 52,
-    flexShrink: 0,
+  photosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  photoGridItem: {
+    width: "31%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#f0f0f0",
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  photoGridImage: {
+    width: "100%",
+    height: "100%",
+  },
+  photoRemoveButton: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    backgroundColor: "#fff",
+    borderRadius: 50,
+    padding: 1,
     elevation: 3,
-  },
-  sendOTPButtonDisabled: {
-    backgroundColor: "#ccc",
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  sendOTPButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  otpSection: {
-    marginTop: 20,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e8e8e8",
-  },
-  otpInputContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  otpInputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  otpInput: {
-    flex: 1,
-    fontSize: 18,
-    color: "#333",
-    fontWeight: "500",
-    letterSpacing: 4,
-  },
-  verifyButton: {
-    backgroundColor: "#003f87",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 52,
-    flexShrink: 0,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  verifyButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  verifyButtonDisabled: {
-    backgroundColor: "#ccc",
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  resendButton: {
-    paddingVertical: 8,
-  },
-  resendButtonText: {
-    color: "#003f87",
-    fontSize: 13,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
-  verifiedBanner: {
-    marginTop: 12,
-    backgroundColor: "#e8f5e9",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: "#4caf50",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  verifiedText: {
-    color: "#2e7d32",
-    fontSize: 14,
-    fontWeight: "600",
-    flex: 1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   helperText: {
     fontSize: 12,
@@ -964,5 +1093,337 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 16,
     fontWeight: "500",
+  },
+  // OTP Styling
+  otpSection: {
+    marginTop: 20,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+  },
+  verifiedBanner: {
+    marginTop: 16,
+    backgroundColor: "#e8f5e9",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#4caf50",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  verifiedText: {
+    color: "#2e7d32",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  resendButton: {
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  resendButtonText: {
+    color: "#003f87",
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    textAlign: "center",
+  },
+  primaryButton: {
+    backgroundColor: "#003f87",
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: "#ccc",
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+  },
+  modalOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 12,
+    backgroundColor: "#f5f7fa",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e8eef5",
+  },
+  modalOptionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flex: 1,
+  },
+  modalOptionText: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000",
+    marginBottom: 4,
+  },
+  modalOptionSubtitle: {
+    fontSize: 12,
+    color: "#999",
+    fontWeight: "400",
+  },
+  modalOptionHint: {
+    fontSize: 11,
+    color: "#0066cc",
+    fontWeight: "500",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  modalCancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+  },
+  modalCancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  videoDurationText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#4caf50",
+    fontWeight: "600",
+  },
+  videoHintText: {
+    marginTop: 4,
+    fontSize: 10,
+    color: "#0066cc",
+    fontStyle: "italic",
+  },
+  videoContainer: {
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  videoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f7fa",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#e8eef5",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  videoThumbnail: {
+    width: 70,
+    height: 70,
+    borderRadius: 10,
+    backgroundColor: "#e8eef5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  videoInfoContainer: {
+    flex: 1,
+  },
+  videoInfoText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#003f87",
+    marginBottom: 4,
+  },
+  videoRemoveButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  experiencePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginTop: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e8eef5",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    gap: 10,
+  },
+  experiencePickerButtonText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#000",
+    fontWeight: "500",
+  },
+  optionsScroll: {
+    flex: 1,
+  },
+  experienceOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+    backgroundColor: "#fff",
+    minHeight: 50,
+  },
+  experienceOptionSelected: {
+    backgroundColor: "#f0f7ff",
+    borderLeftWidth: 4,
+    borderLeftColor: "#003f87",
+    paddingLeft: 12,
+  },
+  experienceOptionText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "400",
+    flex: 1,
+  },
+  experienceOptionTextSelected: {
+    color: "#003f87",
+    fontWeight: "600",
+  },
+  experienceDropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginTop: 12,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    gap: 12,
+  },
+  experienceDropdownButtonText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#333",
+    fontWeight: "500",
+  },
+  experienceDropdownOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  experienceDropdownContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    width: "85%",
+    maxHeight: "70%",
+    paddingTop: 16,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  experienceDropdownHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  experienceDropdownTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#003f87",
+  },
+  experienceDropdownList: {
+    paddingVertical: 8,
+  },
+  experienceDropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+  },
+  experienceDropdownItemActive: {
+    backgroundColor: "#f0f7ff",
+    borderLeftWidth: 4,
+    borderLeftColor: "#003f87",
+    paddingLeft: 12,
+  },
+  experienceDropdownItemText: {
+    fontSize: 15,
+    color: "#555",
+    fontWeight: "400",
+    flex: 1,
+  },
+  experienceDropdownItemTextActive: {
+    color: "#003f87",
+    fontWeight: "600",
   },
 });
