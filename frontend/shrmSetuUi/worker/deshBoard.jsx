@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   BackHandler,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "../../hooks/use-translation";
 

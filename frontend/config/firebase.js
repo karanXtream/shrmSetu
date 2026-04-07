@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Firebase Configuration
- * Uses environment variables from .env.local
+ * Uses environment variables from .env
  */
 
 const firebaseConfig = {
@@ -60,12 +60,12 @@ const validateFirebaseConfig = () => {
   if (missing.length > 0) {
     console.warn('⚠️  Missing Firebase config fields:');
     missing.forEach(m => console.warn(`   - ${m}`));
-    console.warn('   Fix: Add these to .env.local and restart app');
+    console.warn('   Fix: Add these to .env and restart app');
   }
 
   if (empty.length > 0) {
     console.warn('⚠️  Firebase config fields are empty:', empty);
-    console.warn('   Fix: Check .env.local for undefined/empty values');
+    console.warn('   Fix: Check .env for undefined/empty values');
   }
 
   return missing.length === 0 && empty.length === 0;

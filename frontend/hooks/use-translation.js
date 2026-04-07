@@ -19,8 +19,34 @@ export const useTranslation = () => {
     throw new Error('useTranslation must be used within a LanguageProvider');
   }
 
-  // Return i18next's t function directly for simplicity
-  return t;
+  const toReadableText = (key) => {
+    const lastSegment = String(key || '')
+      .split('.')
+      .pop()
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .trim();
+
+    if (!lastSegment) {
+      return '';
+    }
+
+    return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
+  };
+
+  return (key, options = {}) => {
+    const translated = t(key, options);
+
+    if (translated && translated !== key) {
+      return translated;
+    }
+
+    if (typeof options.defaultValue === 'string' && options.defaultValue.trim()) {
+      return options.defaultValue;
+    }
+
+    return toReadableText(key);
+  };
 };
 
 /**

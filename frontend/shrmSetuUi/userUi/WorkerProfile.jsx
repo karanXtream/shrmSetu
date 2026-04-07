@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -19,41 +18,20 @@ export default function WorkerProfile() {
   const { workerId } = useLocalSearchParams();
   const [worker, setWorker] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   useEffect(() => {
     const fetchWorkerDetails = async () => {
       try {
         setLoading(true);
-        setError(null);
-        console.log("Fetching worker with ID:", workerId);
-        console.log("API URL:", API_URL);
-        
-        if (!workerId) {
-          setError("No worker ID provided");
-          setLoading(false);
-          return;
-        }
-
-        const url = `${API_URL}/api/workers/${workerId}`;
-        console.log("Full URL:", url);
-        
-        const response = await fetch(url);
+        const response = await fetch(`${API_URL}/api/workers/${workerId}`);
         const data = await response.json();
         
-        console.log("Worker response status:", response.status);
-        console.log("Worker response data:", data);
-        
-        if (data.success && data.data) {
+        if (data.success) {
           setWorker(data.data);
-          console.log("Worker profile loaded successfully");
-        } else {
-          setError(data.message || "Failed to load worker profile");
+          console.log("Worker profile loaded:", data.data);
         }
       } catch (error) {
         console.error('Error fetching worker details:', error);
-        setError(error.message || "Failed to fetch worker profile");
       } finally {
         setLoading(false);
       }
@@ -76,13 +54,12 @@ export default function WorkerProfile() {
         </View>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color="#003f87" />
-          <Text style={{ marginTop: 12, color: "#999" }}>Loading...</Text>
         </View>
       </View>
     );
   }
 
-  if (error || !worker) {
+  if (!worker) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -92,17 +69,8 @@ export default function WorkerProfile() {
           <Text style={styles.logo}>Worker Profile</Text>
           <View style={{ width: 24 }} />
         </View>
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
-          <Ionicons name="alert-circle" size={48} color="#f44336" />
-          <Text style={{ color: "#333", fontSize: 16, marginTop: 12, textAlign: "center", fontWeight: "bold" }}>
-            {error || "Worker not found"}
-          </Text>
-          <Text style={{ color: "#999", fontSize: 14, marginTop: 8, textAlign: "center" }}>
-            Worker ID: {workerId}
-          </Text>
-          <TouchableOpacity style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "#003f87", borderRadius: 8 }}>
-            <Text style={{ color: "#fff", fontWeight: "bold" }} onPress={() => router.back()}>Go Back</Text>
-          </TouchableOpacity>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: "#999" }}>Worker not found</Text>
         </View>
       </View>
     );
@@ -120,7 +88,8 @@ export default function WorkerProfile() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#003f87" />
           </TouchableOpacity>
-          <Text style={styles.logo}>Profile</Text>
+          <Text style={styles.logo}>Worker Profile</Text>
+          <View style={{ width: 24 }} />
         </View>
 
         {/* PROFILE PHOTO */}
@@ -131,6 +100,16 @@ export default function WorkerProfile() {
           />
         </View>
 
+        {/* RATING */}
+        {worker?.rating && (
+          <View style={styles.ratingContainer}>
+            <Ionicons name="star" size={16} color="#ffc107" />
+            <Text style={styles.ratingText}>
+              {worker.rating.averageRating || 0} ({worker.rating.totalReviews || 0} reviews)
+            </Text>
+          </View>
+        )}
+
         {/* NAME & LOCATION */}
         <View style={styles.infoSection}>
           <Text style={styles.name}>{worker?.userId?.fullName || "Worker"}</Text>
@@ -140,31 +119,7 @@ export default function WorkerProfile() {
               {worker?.userId?.location?.city || ""}, {worker?.userId?.location?.state || ""}
             </Text>
           </View>
-          {worker?.userId?.phoneNumber && (
-            <View style={styles.locationRow}>
-              <Ionicons name="call" size={16} color="#999" />
-              <Text style={styles.location}>{worker.userId.phoneNumber}</Text>
-            </View>
-          )}
-          {worker?.userId?.email && (
-            <View style={styles.locationRow}>
-              <Ionicons name="mail" size={16} color="#999" />
-              <Text style={styles.location}>{worker.userId.email}</Text>
-            </View>
-          )}
         </View>
-
-        {/* RATING */}
-        {worker?.rating && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⭐ Rating</Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={18} color="#ffc107" />
-              <Text style={styles.ratingBig}>{worker.rating.averageRating || 0.0}</Text>
-              <Text style={styles.ratingSmall}>({worker.rating.totalReviews || 0} reviews)</Text>
-            </View>
-          </View>
-        )}
 
         {/* SKILLS */}
         {worker?.skills && worker.skills.length > 0 && (
@@ -199,11 +154,10 @@ export default function WorkerProfile() {
 
         {/* AVAILABILITY */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔔 Availability Status</Text>
+          <Text style={styles.sectionTitle}>🔔 Availability</Text>
           <View style={[styles.statusBadge, worker?.isAvailable ? styles.availableBadge : styles.busyBadge]}>
-            <Ionicons name={worker?.isAvailable ? "checkmark-circle" : "close-circle"} size={18} color={worker?.isAvailable ? "#4caf50" : "#f44336"} />
             <Text style={styles.statusText}>
-              {worker?.isAvailable ? "Available for work" : "Currently Busy"}
+              {worker?.isAvailable ? "Available" : "Busy"}
             </Text>
           </View>
         </View>
@@ -212,7 +166,7 @@ export default function WorkerProfile() {
         {worker?.hourlyRate && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💰 Hourly Rate</Text>
-            <Text style={[styles.value, { fontSize: 18, color: "#d9534f" }]}>₹{worker.hourlyRate}/hour</Text>
+            <Text style={styles.value}>₹{worker.hourlyRate}/hour</Text>
           </View>
         )}
 
@@ -224,30 +178,17 @@ export default function WorkerProfile() {
           </View>
         )}
 
-        {/* ADDRESS */}
-        {worker?.userId?.location?.addressLine1 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📍 Full Address</Text>
-            <Text style={styles.bio}>
-              {worker.userId.location.addressLine1}
-              {worker.userId.location.addressLine2 ? ", " + worker.userId.location.addressLine2 : ""}
-              {"\n"}{worker.userId.location.city}, {worker.userId.location.state} - {worker.userId.location.pincode}
-            </Text>
-          </View>
-        )}
-
         {/* SHOP PHOTOS */}
         {worker?.media?.shopPhotos && worker.media.shopPhotos.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📸 Shop Photos ({worker.media.shopPhotos.length})</Text>
+            <Text style={styles.sectionTitle}>📸 Shop Photos</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopPhotosContainer}>
               {worker.media.shopPhotos.map((photo, index) => (
-                <TouchableOpacity key={index} onPress={() => setSelectedPhoto(photo)}>
-                  <Image 
-                    source={{ uri: photo }} 
-                    style={styles.shopPhoto}
-                  />
-                </TouchableOpacity>
+                <Image 
+                  key={index}
+                  source={{ uri: photo }} 
+                  style={styles.shopPhoto}
+                />
               ))}
             </ScrollView>
           </View>
@@ -259,25 +200,17 @@ export default function WorkerProfile() {
             <Text style={styles.sectionTitle}>🎥 Introduction Video</Text>
             <View style={styles.videoPlaceholder}>
               <Ionicons name="play-circle" size={48} color="#003f87" />
-              <Text style={styles.videoText}>Introductory Video</Text>
+              <Text style={styles.videoText}>Tap to play video</Text>
             </View>
-          </View>
-        )}
-
-        {/* JOINED DATE */}
-        {worker?.createdAt && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📅 Member Since</Text>
-            <Text style={styles.value}>{new Date(worker.createdAt).toLocaleDateString()}</Text>
           </View>
         )}
 
         {/* CONTACT SECTION */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📞 Contact & Book</Text>
+          <Text style={styles.sectionTitle}>📞 Contact</Text>
           <TouchableOpacity style={styles.contactButton}>
             <Ionicons name="call" size={20} color="#fff" />
-            <Text style={styles.contactButtonText}>Call {worker?.userId?.phoneNumber || "Worker"}</Text>
+            <Text style={styles.contactButtonText}>Call Now</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.contactButton, styles.messageButton]}>
             <Ionicons name="chatbubble" size={20} color="#fff" />
@@ -289,29 +222,6 @@ export default function WorkerProfile() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* FULL-SIZE PHOTO MODAL */}
-      <Modal
-        visible={!!selectedPhoto}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setSelectedPhoto(null)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setSelectedPhoto(null)}
-          >
-            <Ionicons name="close" size={30} color="#fff" />
-          </TouchableOpacity>
-
-          <Image
-            source={{ uri: selectedPhoto }}
-            style={styles.fullScreenPhoto}
-            resizeMode="contain"
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -324,7 +234,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -332,139 +242,95 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
-    gap: 14,
   },
 
   logo: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#003f87",
   },
 
   photoContainer: {
     alignItems: "center",
-    paddingVertical: 32,
+    paddingVertical: 20,
     backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e8e8e8",
   },
 
   profilePhoto: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 5,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 4,
     borderColor: "#003f87",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+  },
+
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    gap: 8,
+  },
+
+  ratingText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "600",
   },
 
   infoSection: {
     backgroundColor: "#fff",
-    paddingHorizontal: 18,
-    paddingVertical: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
   },
 
   name: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "bold",
     color: "#222",
-    marginBottom: 14,
+    marginBottom: 8,
   },
 
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
+    gap: 6,
   },
 
   location: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#666",
-    lineHeight: 20,
   },
 
   section: {
     backgroundColor: "#fff",
-    marginTop: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#222",
-    marginBottom: 16,
-    letterSpacing: 0.3,
-  },
-
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  ratingBig: {
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#222",
-  },
-
-  ratingSmall: {
-    fontSize: 14,
-    color: "#999",
-  },
-
-  statusBadge: {
-    flexDirection: "row",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    gap: 10,
-  },
-
-  availableBadge: {
-    backgroundColor: "#e8f5e9",
-  },
-
-  busyBadge: {
-    backgroundColor: "#ffebee",
-  },
-
-  verifiedBadge: {
-    backgroundColor: "#e8f5e9",
-  },
-
-  unverifiedBadge: {
-    backgroundColor: "#fff3e0",
-  },
-
-  statusText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#222",
+    marginBottom: 12,
   },
 
   skillsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: 8,
   },
 
   skillTag: {
     backgroundColor: "#e3f2fd",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#003f87",
@@ -472,7 +338,7 @@ const styles = StyleSheet.create({
 
   skillText: {
     color: "#003f87",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
 
@@ -484,20 +350,41 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#666",
   },
 
   value: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#222",
     fontWeight: "600",
   },
 
+  statusBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+
+  availableBadge: {
+    backgroundColor: "#e8f5e9",
+  },
+
+  busyBadge: {
+    backgroundColor: "#ffebee",
+  },
+
+  statusText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#222",
+  },
+
   bio: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#666",
-    lineHeight: 22,
+    lineHeight: 20,
   },
 
   shopPhotosContainer: {
@@ -505,25 +392,24 @@ const styles = StyleSheet.create({
   },
 
   shopPhoto: {
-    width: 140,
-    height: 140,
-    borderRadius: 12,
-    marginRight: 14,
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 12,
   },
 
   videoPlaceholder: {
-    height: 220,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
+    height: 200,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
   },
 
   videoText: {
     color: "#666",
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 14,
   },
 
   contactButton: {
@@ -531,15 +417,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: 14,
-    marginBottom: 14,
-    gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginBottom: 10,
+    gap: 8,
   },
 
   messageButton: {
@@ -552,29 +433,7 @@ const styles = StyleSheet.create({
 
   contactButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
-  },
-
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  fullScreenPhoto: {
-    width: "80%",
-    height: "80%",
-  },
-
-  closeButton: {
-    position: "absolute",
-    top: 40,
-    right: 20,
-    zIndex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    padding: 10,
-    borderRadius: 50,
   },
 });

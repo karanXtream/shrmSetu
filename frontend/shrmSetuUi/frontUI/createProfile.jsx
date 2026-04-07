@@ -18,6 +18,7 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from 'expo-image-picker';
 import { LanguageContext } from "../../context/LanguageContext";
 import BasicDetails from "../formDetails/BasicDetails";
+import { useRegister } from "../../hooks/useAuthMutations";
 
 export default function CreateProfile() {
   const { t } = useI18nextTranslation();
@@ -25,6 +26,9 @@ export default function CreateProfile() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const selectedRole = params?.role;
+
+  // TanStack Query mutation for registration
+  const registerMutation = useRegister();
 
   const isWorker = selectedRole === "work";
   const maxSteps = isWorker ? 6 : 4;
@@ -36,6 +40,12 @@ export default function CreateProfile() {
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showExperienceDropdown, setShowExperienceDropdown] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState({
+    visible: false,
+    type: 'success',
+    title: '',
+    message: '',
+  });
   const [form, setForm] = useState({
     profilePhoto: null,
     name: "",
@@ -85,6 +95,68 @@ export default function CreateProfile() {
     setForm({ ...form, [key]: value });
   };
 
+  const text = (key, fallback) => {
+    const translated = t(key);
+    return !translated || translated === key ? fallback : translated;
+  };
+
+  const extractReadableMessage = (error) => {
+    if (!error) return 'Something went wrong. Please try again.';
+
+    if (typeof error === 'string') {
+      try {
+        const parsed = JSON.parse(error);
+        return parsed?.message || parsed?.error || error;
+      } catch {
+        return error;
+      }
+    }
+
+    if (error?.message && typeof error.message === 'string') {
+      try {
+        const parsed = JSON.parse(error.message);
+        if (parsed?.errors && Array.isArray(parsed.errors)) {
+          return parsed.errors.join('\n');
+        }
+        return parsed?.message || parsed?.error || error.message;
+      } catch {
+        return error.message;
+      }
+    }
+
+    if (error?.errors && Array.isArray(error.errors)) {
+      return error.errors.join('\n');
+    }
+
+    if (error?.data?.message) {
+      return error.data.message;
+    }
+
+    return 'Something went wrong. Please try again.';
+  };
+
+  const showFeedback = (type, title, message) => {
+    setFeedbackModal({
+      visible: true,
+      type,
+      title,
+      message,
+    });
+  };
+
+  const handleFeedbackClose = () => {
+    const modalType = feedbackModal.type;
+    setFeedbackModal((prev) => ({ ...prev, visible: false }));
+
+    if (modalType === 'success') {
+      if (selectedRole === 'hire') {
+        router.push('screens/user-hire');
+      } else {
+        router.push('(tabs)');
+      }
+    }
+  };
+
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -97,8 +169,8 @@ export default function CreateProfile() {
         alert(typeof t('createProfile.invalidEmail') === 'string' ? t('createProfile.invalidEmail') : 'Please enter a valid email address');
         return false;
       }
-      if (!form.password || form.password.length < 8) {
-        alert(typeof t('createProfile.passwordRequirements') === 'string' ? t('createProfile.passwordRequirements') : 'Password must be at least 8 characters');
+      if (!form.password) {
+        alert('Please enter a password');
         return false;
       }
       if (form.password !== form.confirmPassword) {
@@ -113,23 +185,86 @@ export default function CreateProfile() {
     return true;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!validateStep()) {
       return;
     }
+
     if (currentStep < maxSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      // All steps completed
-      console.log("Profile created:", { ...form, role: selectedRole });
-      // Navigate based on role
-      if (selectedRole === "hire") {
-        // Hiring users go to User/Hire page (job listings)
-        router.push("screens/user-hire");
-      } else {
-        // Workers go to dashboard
-        router.push("(tabs)");
+      // All steps completed - Submit to backend using TanStack Query
+      await submitRegistration();
+    }
+  };
+
+  const submitRegistration = async () => {
+    try {
+      // Prepare files array
+      const files = [];
+
+      // Add profile photo
+      if (form.profilePhoto) {
+        files.push({
+          type: 'profilePhoto',
+          uri: form.profilePhoto,
+          name: `profile_${Date.now()}.jpg`,
+        });
       }
+
+      // Add shop photos (worker only)
+      if (isWorker && form.shopPhotos.length > 0) {
+        form.shopPhotos.forEach((photo, index) => {
+          files.push({
+            type: 'shopPhotos',
+            uri: photo,
+            name: `shop_${index}_${Date.now()}.jpg`,
+          });
+        });
+      }
+
+      // Add intro video (worker only)
+      if (isWorker && form.introductoryVideo) {
+        files.push({
+          type: 'introVideo',
+          uri: form.introductoryVideo.uri,
+          name: `intro_${Date.now()}.mp4`,
+        });
+      }
+
+      // Prepare registration data
+      const backendRole = selectedRole === 'work' ? 'worker' : 'user';
+      const userData = {
+        fullName: form.name,
+        phoneNumber: form.phone,
+        email: form.email,
+        password: form.password,
+        role: backendRole,
+        city: form.city,
+        state: form.state,
+        pincode: form.pin,
+        addressLine1: form.addressLine1,
+        addressLine2: form.addressLine2,
+        // Worker-specific
+        ...(isWorker && {
+          education: form.education,
+          yearsOfExperience: form.yearsOfExperience,
+          skills: form.skills,
+        }),
+      };
+
+      // Call mutation (TanStack Query handles loading and error states)
+      await registerMutation.mutateAsync({ userData, files });
+
+      showFeedback(
+        'success',
+        text('createProfile.successTitle', 'Registration Complete'),
+        text('createProfile.successMessage', 'Your profile was created successfully.')
+      );
+    } catch (error) {
+      console.error('Submit registration error:', error);
+      const errorMessage = extractReadableMessage(error);
+      showFeedback('error', 'Registration Failed', errorMessage);
     }
   };
 
@@ -618,7 +753,7 @@ export default function CreateProfile() {
                 />
               </TouchableOpacity>
             </View>
-            <Text style={styles.helperText}>{t('createProfile.passwordRequirements')}</Text>
+            <Text style={styles.helperText}>Any password is accepted for now</Text>
 
             {/* Confirm Password */}
             <Text style={styles.label}>{t('createProfile.confirmPassword')}</Text>
@@ -645,6 +780,14 @@ export default function CreateProfile() {
           </View>
         )}
 
+        {/* Error Message */}
+        {registerMutation.error && (
+          <View style={styles.errorMessageBox}>
+            <Ionicons name="alert-circle" size={20} color="#e53935" />
+            <Text style={styles.errorMessageText}>{extractReadableMessage(registerMutation.error)}</Text>
+          </View>
+        )}
+
         {/* Info */}
         <View style={styles.infoBox}>
           <Ionicons name="shield-checkmark" size={20} color="#924c00" />
@@ -654,12 +797,60 @@ export default function CreateProfile() {
         </View>
 
         {/* Button */}
-        <TouchableOpacity style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>
-            {currentStep === maxSteps ? t('buttons.complete') : t('buttons.next')}
-          </Text>
+        <TouchableOpacity 
+          style={[styles.button, registerMutation.isPending && styles.buttonDisabled]} 
+          onPress={handleContinue}
+          disabled={registerMutation.isPending}
+        >
+          {registerMutation.isPending ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={styles.buttonText}>
+                {text('messages.submitting', 'Submitting...')}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.buttonText}>
+              {currentStep === maxSteps ? text('buttons.complete', 'Complete') : text('buttons.next', 'Next')}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Registration Feedback Modal */}
+      <Modal
+        visible={feedbackModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleFeedbackClose}
+      >
+        <View style={styles.feedbackOverlay}>
+          <View style={styles.feedbackCard}>
+            <View
+              style={[
+                styles.feedbackIconWrap,
+                feedbackModal.type === 'success' ? styles.feedbackSuccess : styles.feedbackError,
+              ]}
+            >
+              <Ionicons
+                name={feedbackModal.type === 'success' ? 'checkmark' : 'close'}
+                size={34}
+                color="#fff"
+              />
+            </View>
+
+            <Text style={styles.feedbackTitle}>{feedbackModal.title}</Text>
+            <Text style={styles.feedbackMessage}>{feedbackModal.message}</Text>
+
+            <TouchableOpacity
+              style={styles.feedbackButton}
+              onPress={handleFeedbackClose}
+            >
+              <Text style={styles.feedbackButtonText}>{text('buttons.ok', 'OK')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Experience Dropdown Modal */}
       <Modal
@@ -871,12 +1062,37 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: "#999",
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
     letterSpacing: 0.5,
+  },
+  errorMessageBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: "#ffebee",
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: "#e53935",
+  },
+  errorMessageText: {
+    fontSize: 13,
+    color: "#c62828",
+    fontWeight: "500",
+    flex: 1,
   },
   photoBox: {
     width: 120,
@@ -1010,7 +1226,7 @@ const styles = StyleSheet.create({
   },
   uploadBox: {
     borderWidth: 2,
-    borderStyle: "dashed",
+    borderStyle: "dashed",    
     borderColor: "#ddd",
     borderRadius: 10,
     padding: 24,
@@ -1235,6 +1451,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#666",
+  },
+  feedbackOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  feedbackCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    alignItems: 'center',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+  },
+  feedbackIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  feedbackSuccess: {
+    backgroundColor: '#16a34a',
+  },
+  feedbackError: {
+    backgroundColor: '#dc2626',
+  },
+  feedbackTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  feedbackMessage: {
+    fontSize: 15,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  feedbackButton: {
+    backgroundColor: '#003f87',
+    borderRadius: 12,
+    minWidth: 120,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+  },
+  feedbackButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   videoDurationText: {
     marginTop: 4,

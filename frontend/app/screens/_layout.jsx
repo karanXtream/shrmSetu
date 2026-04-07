@@ -2,7 +2,11 @@ import { Stack } from 'expo-router';
 
 export default function ScreensLayout() {
   return (
-    <Stack>
+    <Stack initialRouteName="sign-in">
+      <Stack.Screen
+        name="sign-in"
+        options={{ headerShown: false }}
+      />
       <Stack.Screen 
         name="home" 
         options={{ headerShown: false }} 
@@ -21,6 +25,10 @@ export default function ScreensLayout() {
       />
       <Stack.Screen 
         name="dashboard" 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="post" 
         options={{ headerShown: false }} 
       />
     </Stack>

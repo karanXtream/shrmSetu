@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,28 @@ import {
   ImageBackground,
   TouchableOpacity,
   FlatList,
+  BackHandler,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
+
+// Helper function to fetch with timeout
+const fetchWithTimeout = async (url, timeout = 12000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
 
 const jobCategories = {
   electrician: [
@@ -74,27 +93,133 @@ const jobCategories = {
 const trendingCategories = [
   { name: "Plumbing", count: "234 jobs", icon: "🔧" },
   { name: "Carpentry", count: "189 jobs", icon: "🪵" },
-  { name: "Painting", count: "156 jobs", icon: "🎨" },
-  { name: "Demolition", count: "98 jobs", icon: "🏗" },
 ];
 
-const quickActions = [
-  { label: "Complete Profile", icon: "person-add", color: "#e3f2fd" },
-  { label: "Browse Jobs", icon: "briefcase", color: "#f3e5f5" },
-  { label: "View Skills", icon: "star", color: "#fce4ec" },
-];
+const quickActions = [];
+
+// Helper function to truncate text
+const truncateText = (text, maxLength = 40) => {
+  if (!text) return "";
+  if (text.length > maxLength) {
+    return text.substring(0, maxLength) + "..";
+  }
+  return text;
+};
 
 export default function UserFlow() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("home");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const cacheRef = useRef(null);
+  const pageRef = useRef(0);
+  const abortControllerRef = useRef(null);
+
+  const ITEMS_PER_PAGE = 10;
+  const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+
+  // Load cache and fetch first batch
+  useEffect(() => {
+    loadUsers(true);
+    
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const loadUsers = async (isInitial = false) => {
+    // Check cache first for initial load
+    if (isInitial && cacheRef.current && Date.now() - cacheRef.current.timestamp < CACHE_TIME) {
+      setUsers(cacheRef.current.data.slice(0, ITEMS_PER_PAGE));
+      pageRef.current = 0;
+      setPage(0);
+      setHasMore(cacheRef.current.data.length > ITEMS_PER_PAGE);
+      setLoading(false);
+      return;
+    }
+
+    if (isInitial) {
+      setLoading(true);
+      pageRef.current = 0;
+      setPage(0);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      abortControllerRef.current = new AbortController();
+      const skipValue = isInitial ? 0 : (pageRef.current + 1) * ITEMS_PER_PAGE;
+      const response = await fetchWithTimeout(
+        `${API_URL}/api/workers?skip=${skipValue}&limit=${ITEMS_PER_PAGE}`,
+        12000
+      );
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.data)) {
+        if (isInitial) {
+          // Store all data in cache for future pagination
+          const allWorkers = data.data;
+          cacheRef.current = { data: allWorkers, timestamp: Date.now() };
+          setUsers(allWorkers.slice(0, ITEMS_PER_PAGE));
+          setHasMore(allWorkers.length > ITEMS_PER_PAGE);
+          pageRef.current = 0;
+          setPage(0);
+        } else {
+          const newPage = pageRef.current + 1;
+          pageRef.current = newPage;
+          setPage(newPage);
+          
+          if (cacheRef.current && cacheRef.current.data) {
+            const startIdx = newPage * ITEMS_PER_PAGE;
+            const endIdx = (newPage + 1) * ITEMS_PER_PAGE;
+            const moreUsers = cacheRef.current.data.slice(startIdx, endIdx);
+            
+            setUsers(prev => [...prev, ...moreUsers]);
+            setHasMore(moreUsers.length === ITEMS_PER_PAGE);
+          } else {
+            setHasMore(data.data.length === ITEMS_PER_PAGE);
+          }
+        }
+        console.log("Fetched workers batch:", data.data.length);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching users:', error);
+      }
+      if (isInitial) setUsers([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleEndReached = () => {
+    if (!loadingMore && hasMore) {
+      loadUsers(false);
+    }
+  };
+
+  const handleExitApp = () => {
+    BackHandler.exitApp();
+  };
 
   const handleTabPress = (tab) => {
     setActiveTab(tab);
     // Navigate based on tab
-    if (tab === "search") {
-      router.push("screens/search");
+    if (tab === "post") {
+      router.replace("/screens/post");
+    } else if (tab === "search") {
+      router.replace("/screens/search");
     } else if (tab === "profile") {
-      router.push("screens/profile");
+      router.replace("/screens/profile");
     }
   };
 
@@ -106,13 +231,14 @@ export default function UserFlow() {
 
         {/* HEADER */}
         <View style={styles.header}>
-        <View style={{ width: 24 }} />
-          <Text style={styles.logo}>SkillMatch</Text>
-          <Ionicons name="person-circle" size={32} color="#003f87" />
+          <TouchableOpacity onPress={handleExitApp}>
+            <Ionicons name="arrow-back" size={24} color="#003f87" />
+          </TouchableOpacity>
+          <Text style={styles.logo}>shrmSetu</Text>
         </View>
 
         {/* EXTRA GAP AFTER HEADER */}
-        <View style={{ height: 16 }} />
+        <View style={{ height: 32 }} />
 
         {/* INSPIRATION BANNER */}
         <View style={styles.bannerWrapper}>
@@ -136,144 +262,83 @@ export default function UserFlow() {
 
         {/* ELECTRICIAN JOBS SECTION */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>⚡ Electrician</Text>
-          <TouchableOpacity onPress={() => router.push("screens/all-electrician")}>
-            <Text style={styles.viewAll}>View All ›</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>👥 All Workers ({users.length})</Text>
         </View>
 
-        <View style={styles.cardsContainer}>
-          {jobCategories.electrician.map((item, index) => (
-            <View key={index} style={styles.card}>
-              <Image source={{ uri: item.img }} style={styles.cardImg} />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={styles.cardLocationPrice}>
-                  <Ionicons name="location" size={14} color="#999" />
-                  <Text style={styles.cardSub}>{item.location}</Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                  <Ionicons name="star" size={12} color="#ffc107" />
-                  <Text style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>{item.rating}</Text>
-                </View>
-                <TouchableOpacity style={styles.applyBtn}>
-                  <Text style={styles.applyText}>View Profile</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* PLUMBER JOBS SECTION */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🔧 Plumber</Text>
-          <TouchableOpacity onPress={() => router.push("screens/all-plumber")}>
-            <Text style={styles.viewAll}>View All ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.cardsContainer}>
-          {jobCategories.plumber.map((item, index) => (
-            <View key={index} style={styles.card}>
-              <Image source={{ uri: item.img }} style={styles.cardImg} />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={styles.cardLocationPrice}>
-                  <Ionicons name="location" size={14} color="#999" />
-                  <Text style={styles.cardSub}>{item.location}</Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                  <Ionicons name="star" size={12} color="#ffc107" />
-                  <Text style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>{item.rating}</Text>
-                </View>
-                <TouchableOpacity style={styles.applyBtn}>
-                  <Text style={styles.applyText}>View Profile</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* PAINTER JOBS SECTION */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🎨 Painter</Text>
-          <TouchableOpacity onPress={() => router.push("screens/all-painter")}>
-            <Text style={styles.viewAll}>View All ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.cardsContainer}>
-          {jobCategories.painter.map((item, index) => (
-            <View key={index} style={styles.card}>
-              <Image source={{ uri: item.img }} style={styles.cardImg} />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={styles.cardLocationPrice}>
-                  <Ionicons name="location" size={14} color="#999" />
-                  <Text style={styles.cardSub}>{item.location}</Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                  <Ionicons name="star" size={12} color="#ffc107" />
-                  <Text style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>{item.rating}</Text>
-                </View>
-                <TouchableOpacity style={styles.applyBtn}>
-                  <Text style={styles.applyText}>View Profile</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* CARPENTER JOBS SECTION */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🪵 Carpenter</Text>
-          <TouchableOpacity onPress={() => router.push("screens/all-carpenter")}>
-            <Text style={styles.viewAll}>View All ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.cardsContainer}>
-          {jobCategories.carpenter.map((item, index) => (
-            <View key={index} style={styles.card}>
-              <Image source={{ uri: item.img }} style={styles.cardImg} />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={styles.cardLocationPrice}>
-                  <Ionicons name="location" size={14} color="#999" />
-                  <Text style={styles.cardSub}>{item.location}</Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                  <Ionicons name="star" size={12} color="#ffc107" />
-                  <Text style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>{item.rating}</Text>
-                </View>
-                <TouchableOpacity style={styles.applyBtn}>
-                  <Text style={styles.applyText}>View Profile</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* QUICK ACTIONS */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.subSectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsContainer}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity key={index} style={[styles.quickActionCard, { backgroundColor: action.color }]}>
-                <Ionicons name={action.icon} size={28} color="#003f87" />
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
-              </TouchableOpacity>
-            ))}
+        {loading ? (
+          <View style={{ alignItems: "center", paddingVertical: 40 }}>
+            <ActivityIndicator size="large" color="#003f87" />
           </View>
-        </View>
+        ) : users.length > 0 ? (
+          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+            <FlatList
+              scrollEnabled={false}
+              data={users}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 16, marginBottom: 20 }}
+              keyExtractor={(item) => item._id}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={{ alignItems: "center", paddingVertical: 20, width: '100%' }}>
+                    <ActivityIndicator size="small" color="#003f87" />
+                  </View>
+                ) : null
+              }
+              renderItem={({ item: worker }) => {
+                const firstSkill = worker?.skills?.[0] || "Worker";
+                const fallbackAvatar = `https://ui-avatars.com/api/?name=${firstSkill}&background=random&color=fff&bold=true&size=400`;
+                const profilePhoto = worker?.media?.profilePhoto || fallbackAvatar;
+                return (
+                  <View style={[styles.card, { flex: 1 }]}>
+                    <Image 
+                      source={{ uri: profilePhoto }} 
+                      style={styles.cardImg}
+                      onError={(e) => console.log("Image error:", e.nativeEvent.error)}
+                      onLoad={() => console.log("Image loaded successfully")}
+                    />
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardLocationPrice}>
+                        <Ionicons name="hammer-outline" size={14} color="#999" />
+                        <Text style={styles.cardSub} numberOfLines={1}>
+                          {truncateText(worker?.skills?.join(", ") || "No skills", 35)}
+                        </Text>
+                      </View>
+                      <View style={styles.cardLocationPrice}>
+                        <Ionicons name="location" size={14} color="#999" />
+                        <Text style={styles.cardSub} numberOfLines={1}>
+                          {worker?.userId?.location?.city || ""}{worker?.userId?.location?.city && worker?.userId?.location?.state ? ", " : ""}{worker?.userId?.location?.state || ""}
+                        </Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.applyBtn}
+                        onPress={() => {
+                          console.log("Navigating to worker profile with ID:", worker.userId?._id || worker._id);
+                          router.push({
+                            pathname: "/screens/worker-profile",
+                            params: { workerId: worker.userId?._id || worker._id }
+                          });
+                        }}
+                      >
+                        <Text style={styles.applyText}>View Profile</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          </View>
+        ) : (
+          <View style={{ alignItems: "center", paddingVertical: 40 }}>
+            <Text style={{ color: "#999" }}>No workers available</Text>
+          </View>
+        )}
 
         {/* TRENDING CATEGORIES */}
         <View style={styles.trendingSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trending Categories</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAll}>View All ›</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Popular Skills</Text>
           </View>
           <View style={styles.categoriesGrid}>
             {trendingCategories.map((category, index) => (
@@ -284,32 +349,6 @@ export default function UserFlow() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        {/* STATS SECTION */}
-        <View style={styles.statsSection}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>50K+</Text>
-            <Text style={styles.statLabel}>Verified Workers</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>₹1.2L</Text>
-            <Text style={styles.statLabel}>Avg Earnings</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>4.8★</Text>
-            <Text style={styles.statLabel}>User Rating</Text>
-          </View>
-        </View>
-
-        {/* CTA BANNER */}
-        <View style={styles.ctaBanner}>
-          <Ionicons name="flash" size={32} color="#ffc107" />
-          <Text style={styles.ctaTitle}>Limited Time Offer</Text>
-          <Text style={styles.ctaDesc}>Get 20% bonus on first 5 jobs applied</Text>
-          <TouchableOpacity style={styles.ctaButton}>
-            <Text style={styles.ctaButtonText}>Claim Bonus</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={{ height: 40 }} />
@@ -328,6 +367,20 @@ export default function UserFlow() {
           />
           <Text style={[styles.navLabel, activeTab === "home" && styles.navLabelActive]}>
             Home
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.navItemContainer}
+          onPress={() => handleTabPress("post")}
+        >
+          <Ionicons
+            name="add-circle"
+            size={24}
+            color={activeTab === "post" ? "#003f87" : "#999"}
+          />
+          <Text style={[styles.navLabel, activeTab === "post" && styles.navLabelActive]}>
+            Post
           </Text>
         </TouchableOpacity>
 
@@ -368,7 +421,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -376,6 +429,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
+    gap: 14,
   },
 
   logo: {
@@ -386,8 +440,8 @@ const styles = StyleSheet.create({
 
   bannerWrapper: {
     paddingHorizontal: 16,
-    paddingVertical: 24,
-    paddingTop: 24,
+    paddingVertical: 28,
+    paddingTop: 28,
   },
 
   banner: {
@@ -533,14 +587,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 0,
+    marginBottom: 24,
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "700",
     color: "#222",
+    letterSpacing: 0.4,
   },
 
   viewAll: {
@@ -559,23 +614,23 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     backgroundColor: "#fff",
-    borderRadius: 14,
+    borderRadius: 18,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   cardImg: {
-    height: 140,
+    height: 170,
     width: "100%",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#f5f5f5",
   },
 
   cardContent: {
-    padding: 14,
+    padding: 20,
   },
 
   cardTitle: {
@@ -588,27 +643,28 @@ const styles = StyleSheet.create({
   cardLocationPrice: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 15,
   },
 
   cardSub: {
     color: "#888",
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 13,
+    marginLeft: 6,
+    lineHeight: 19,
   },
 
   applyBtn: {
     backgroundColor: "#003f87",
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 2,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
   },
 
   applyText: {
     color: "#fff",
     textAlign: "center",
     fontWeight: "bold",
-    fontSize: 13,
+    fontSize: 14,
   },
 
   quickActionsSection: {
@@ -652,44 +708,45 @@ const styles = StyleSheet.create({
 
   trendingSection: {
     paddingHorizontal: 16,
-    marginTop: 28,
+    marginTop: 52,
+    marginBottom: 20,
   },
 
   categoriesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
-    marginTop: 12,
+    gap: 18,
+    marginTop: 0,
   },
 
   categoryCard: {
-    width: "48%",
+    width: "47%",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 18,
+    padding: 24,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
   },
 
   categoryIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    fontSize: 48,
+    marginBottom: 14,
   },
 
   categoryName: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "bold",
     color: "#222",
   },
 
   categoryCount: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#999",
-    marginTop: 4,
+    marginTop: 8,
   },
 
   statsSection: {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useState } from 'react';
+import React, { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import queryClient from '../config/queryClient';
@@ -15,9 +15,20 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [isAsyncStorageAvailable, setIsAsyncStorageAvailable] = useState(true);
+
+  const isStorageUnavailableError = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('native module is null') || message.includes('legacy storage');
+  };
 
   // Restore token on app load
   const restoreToken = useCallback(async () => {
+    if (!isAsyncStorageAvailable) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('authToken');
       const userData = await AsyncStorage.getItem('userData');
@@ -27,38 +38,82 @@ export const AuthProvider = ({ children }) => {
         setIsSignedIn(true);
       }
     } catch (e) {
-      console.error('Failed to restore token:', e);
+      if (isStorageUnavailableError(e)) {
+        setIsAsyncStorageAvailable(false);
+        console.warn('AsyncStorage unavailable. Continuing without persisted auth.');
+      } else {
+        console.error('Failed to restore token:', e);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAsyncStorageAvailable]);
 
   const login = useCallback(async (userData, token) => {
+    // Always allow login state in-memory, even if persistence is unavailable.
+    setUser(userData);
+    setIsSignedIn(true);
+
+    if (!isAsyncStorageAvailable) {
+      return;
+    }
+
     try {
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      setUser(userData);
-      setIsSignedIn(true);
     } catch (e) {
-      console.error('Failed to save auth data:', e);
-      throw e;
+      if (isStorageUnavailableError(e)) {
+        setIsAsyncStorageAvailable(false);
+        console.warn('AsyncStorage unavailable. Auth will persist only for this session.');
+      } else {
+        console.error('Failed to save auth data:', e);
+      }
     }
-  }, []);
+  }, [isAsyncStorageAvailable]);
 
   const logout = useCallback(async () => {
+    setUser(null);
+    setIsSignedIn(false);
+
+    if (!isAsyncStorageAvailable) {
+      queryClient.clear();
+      return;
+    }
+
     try {
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userData');
-      setUser(null);
-      setIsSignedIn(false);
-      
+    } catch (e) {
+      if (isStorageUnavailableError(e)) {
+        setIsAsyncStorageAvailable(false);
+        console.warn('AsyncStorage unavailable during logout.');
+      } else {
+        console.error('Failed to logout:', e);
+      }
+    } finally {
       // Clear all queries on logout
       queryClient.clear();
-    } catch (e) {
-      console.error('Failed to logout:', e);
-      throw e;
     }
-  }, []);
+  }, [isAsyncStorageAvailable]);
+
+  const updateUser = useCallback(async (nextUserData) => {
+    setUser(nextUserData);
+
+    if (!isAsyncStorageAvailable) {
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem('userData', JSON.stringify(nextUserData));
+    } catch (e) {
+      if (isStorageUnavailableError(e)) {
+        setIsAsyncStorageAvailable(false);
+        console.warn('AsyncStorage unavailable. Profile changes will persist only for this session.');
+      } else {
+        console.error('Failed to persist updated user data:', e);
+      }
+    }
+  }, [isAsyncStorageAvailable]);
 
   const value = {
     user,
@@ -67,7 +122,12 @@ export const AuthProvider = ({ children }) => {
     restoreToken,
     login,
     logout,
+    updateUser,
   };
+
+  useEffect(() => {
+    restoreToken();
+  }, [restoreToken]);
 
   return (
     <AuthContext.Provider value={value}>
