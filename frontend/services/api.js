@@ -63,8 +63,7 @@ export const workerAPI = {
   },
 
   getProfile: async (id) => {
-    // TODO: return apiClient.get(`/api/workers/${id}`);
-    console.log('WORKER: getProfile', id);
+    return apiClient.get(`/api/workers/${id}`);
   },
 
   updateProfile: async (id, data) => {

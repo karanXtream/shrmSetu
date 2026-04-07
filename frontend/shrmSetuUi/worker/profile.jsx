@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,34 +9,150 @@ import {
   FlatList,
   Modal,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRoute, useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { workerAPI } from "../../services/api";
+import { useAuth } from "../../providers/RootProvider";
 
 export default function Profile() {
+  const route = useRoute();
+  const navigation = useNavigation();
+  const { logout } = useAuth();
   // State management
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [workerData, setWorkerData] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [profileData, setProfileData] = useState({
     profilePhoto: "https://via.placeholder.com/200",
-    name: "Marcus Sterling",
-    email: "marcus.sterling@email.com",
+    name: "Loading...",
+    email: "loading...",
     password: "••••••••••",
-    phone: "+1 (555) 234-8901",
-    addressLine1: "742 Evergreen Terrace",
-    addressLine2: "Apt 5B",
-    city: "Springfield",
-    state: "Illinois",
-    pin: "62704",
-    skills: ["Cabinetry", "Restoration", "CNC", "Wood Finishing", "Design"],
-    workCertificate: "OSHA_Certified_2023.pdf",
-    yearsOfExperience: "12",
-    shopPhotos: [
-      "https://via.placeholder.com/150",
-      "https://via.placeholder.com/150",
-      "https://via.placeholder.com/150",
-    ],
-    introductoryVideo: "portfolio_video.mp4",
+    phone: "loading...",
+    addressLine1: "loading...",
+    addressLine2: "",
+    city: "loading...",
+    state: "loading...",
+    pin: "loading...",
+    skills: [],
+    workCertificate: "Not available",
+    yearsOfExperience: "0",
+    shopPhotos: [],
+    introductoryVideo: "Not available",
+    bio: "No bio added yet",
+    hourlyRate: "0",
+    rating: 0,
+    totalReviews: 0,
+    education: "Not specified",
+    isAvailable: false,
   });
+
+  // Fetch worker profile data
+  useEffect(() => {
+    const fetchWorkerProfile = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Get user ID from route params or AsyncStorage
+        let userId = route.params?.userId;
+        
+        if (!userId) {
+          const userJson = await AsyncStorage.getItem("userData");
+          if (userJson) {
+            const user = JSON.parse(userJson);
+            userId = user._id || user.id;
+          }
+        }
+
+        if (!userId) {
+          throw new Error("User ID not found");
+        }
+
+        console.log("Fetching worker profile for userId:", userId);
+
+        // Call API to get worker profile
+        const response = await workerAPI.getProfile(userId);
+        
+        console.log("Worker profile response:", response);
+
+        if (response?.data) {
+          const worker = response.data.data || response.data;
+          setWorkerData(worker);
+
+          // Update profile data with fetched information
+          const updatedProfileData = {
+            profilePhoto: worker.media?.profilePhoto || "https://via.placeholder.com/200",
+            name: worker.userId?.fullName || "Worker Name",
+            email: worker.userId?.email || "No email",
+            password: "••••••••••",
+            phone: worker.userId?.phoneNumber || "No phone",
+            addressLine1: worker.userId?.location?.addressLine1 || "No address",
+            addressLine2: worker.userId?.location?.addressLine2 || "",
+            city: worker.userId?.location?.city || "No city",
+            state: worker.userId?.location?.state || "No state",
+            pin: worker.userId?.location?.pincode || "No PIN",
+            skills: worker.skills || [],
+            workCertificate: "Verified",
+            yearsOfExperience: worker.experienceYears?.toString() || "0",
+            shopPhotos: worker.media?.shopPhotos || [],
+            introductoryVideo: worker.media?.introductoryVideo || "Not available",
+            bio: worker.bio || "No bio added yet",
+            hourlyRate: worker.hourlyRate?.toString() || "0",
+            rating: worker.rating?.averageRating || 0,
+            totalReviews: worker.rating?.totalReviews || 0,
+            education: worker.education || "Not specified",
+            isAvailable: worker.isAvailable || false,
+          };
+
+          setProfileData(updatedProfileData);
+          setUserData(worker.userId);
+        }
+      } catch (err) {
+        console.error("Error fetching worker profile:", err);
+        setError(err.message || "Failed to load profile");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWorkerProfile();
+  }, [route.params?.userId]);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          onPress: () => console.log("Logout cancelled"),
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          onPress: async () => {
+            try {
+              await logout();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Home" }],
+              });
+            } catch (err) {
+              Alert.alert("Error", "Failed to logout. Please try again.");
+              console.error("Logout error:", err);
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
+  };
 
   const handlePhotoUpload = () => {
     Alert.alert("Upload Photo", "Choose a photo from camera or gallery", [
@@ -77,7 +193,22 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#003f87" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      )}
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={32} color="#dc2626" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {!isLoading && !error && (
+        <ScrollView showsVerticalScrollIndicator={false}>
         {/* HERO SECTION WITH GRADIENT */}
         <LinearGradient
           colors={["#003f87", "#0052cc"]}
@@ -227,23 +358,101 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* CERTIFICATION SECTION */}
+        {/* RATING & REVIEWS SECTION */}
         <View style={styles.section}>
           <View style={styles.cardHeader}>
-            <Ionicons name="document-text" size={24} color="#003f87" />
-            <Text style={styles.sectionTitle}>Certifications</Text>
+            <Ionicons name="star" size={24} color="#ffc107" />
+            <Text style={styles.sectionTitle}>Rating & Reviews</Text>
           </View>
 
-          <TouchableOpacity style={styles.certificateCard}>
-            <View style={styles.certificateIcon}>
-              <Ionicons name="document-attach" size={28} color="#003f87" />
+          <View style={styles.infoCard}>
+            <View style={styles.ratingContainer}>
+              <View style={styles.ratingBox}>
+                <Text style={styles.ratingScore}>{profileData.rating.toFixed(1)}</Text>
+                <View style={styles.starsContainer}>
+                  {[...Array(5)].map((_, i) => (
+                    <Ionicons
+                      key={i}
+                      name={i < Math.floor(profileData.rating) ? "star" : "star-outline"}
+                      size={16}
+                      color={i < Math.floor(profileData.rating) ? "#ffc107" : "#e5e7eb"}
+                    />
+                  ))}
+                </View>
+              </View>
+              <View style={styles.reviewsBox}>
+                <Text style={styles.reviewsText}>{profileData.totalReviews}</Text>
+                <Text style={styles.reviewsLabel}>Total Reviews</Text>
+              </View>
             </View>
-            <View style={styles.certificateContent}>
-              <Text style={styles.certificateName}>{profileData.workCertificate}</Text>
-              <Text style={styles.certificateStatus}>✓ Verified</Text>
+          </View>
+        </View>
+
+        {/* BIO SECTION */}
+        {profileData.bio && profileData.bio !== "No bio added yet" && (
+          <View style={styles.section}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="document-text" size={24} color="#003f87" />
+              <Text style={styles.sectionTitle}>About</Text>
             </View>
-            <Ionicons name="download-outline" size={20} color="#999" />
-          </TouchableOpacity>
+
+            <View style={styles.bioCard}>
+              <Text style={styles.bioText}>{profileData.bio}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* PROFESSIONAL INFO SECTION */}
+        <View style={styles.section}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="briefcase" size={24} color="#003f87" />
+            <Text style={styles.sectionTitle}>Professional Information</Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            {/* Hourly Rate */}
+            <View style={styles.infoRow}>
+              <View style={styles.iconBox}>
+                <Ionicons name="cash" size={20} color="#003f87" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Hourly Rate</Text>
+                <Text style={styles.infoValue}>₹{profileData.hourlyRate}/hour</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Education */}
+            <View style={styles.infoRow}>
+              <View style={styles.iconBox}>
+                <Ionicons name="school" size={20} color="#003f87" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Education</Text>
+                <Text style={styles.infoValue}>{profileData.education}</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Availability Status */}
+            <View style={styles.infoRow}>
+              <View style={styles.iconBox}>
+                <Ionicons
+                  name={profileData.isAvailable ? "checkmark-circle" : "close-circle"}
+                  size={20}
+                  color={profileData.isAvailable ? "#10b981" : "#ef4444"}
+                />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Availability Status</Text>
+                <Text style={[styles.infoValue, { color: profileData.isAvailable ? "#10b981" : "#ef4444" }]}>
+                  {profileData.isAvailable ? "Available for work" : "Currently unavailable"}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* PORTFOLIO SECTION */}
@@ -277,8 +486,20 @@ export default function Profile() {
           </TouchableOpacity>
         </View>
 
+        {/* LOGOUT SECTION */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#fff" />
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -471,46 +692,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // CERTIFICATE
-  certificateCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-
-  certificateIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: "#f0f4ff",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  certificateContent: {
-    flex: 1,
-  },
-
-  certificateName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#003f87",
-    marginBottom: 2,
-  },
-
-  certificateStatus: {
-    fontSize: 12,
-    color: "#228B22",
-    fontWeight: "600",
-  },
 
   // PORTFOLIO
   photoRow: {
@@ -549,5 +730,115 @@ const styles = StyleSheet.create({
   videoSubtext: {
     color: "rgba(255,255,255,0.7)",
     fontSize: 12,
+  },
+
+  // Loading & Error States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    paddingHorizontal: 20,
+  },
+
+  errorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#dc2626",
+    textAlign: "center",
+    fontWeight: "500",
+  },
+
+  // Rating Section
+  ratingContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+
+  ratingBox: {
+    alignItems: "center",
+  },
+
+  ratingScore: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#ffc107",
+  },
+
+  starsContainer: {
+    flexDirection: "row",
+    marginTop: 8,
+    gap: 4,
+  },
+
+  reviewsBox: {
+    alignItems: "center",
+  },
+
+  reviewsText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#003f87",
+  },
+
+  reviewsLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 4,
+  },
+
+  // Bio Section
+  bioCard: {
+    backgroundColor: "#f3f4f6",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: "#003f87",
+  },
+
+  bioText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#1f2937",
+    fontWeight: "400",
+  },
+
+  // LOGOUT BUTTON
+  logoutButton: {
+    backgroundColor: "#dc2626",
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#dc2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  logoutButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

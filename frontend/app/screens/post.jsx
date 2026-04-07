@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import PostForm from '@/shrmSetuUi/formDetails/PostForm';
 
 export default function PostScreen() {
@@ -25,9 +26,34 @@ export default function PostScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Create Post</Text>
-            <Text style={styles.headerSubtitle}>Share your requirement for workers</Text>
+          {/* GRADIENT HEADER */}
+          <LinearGradient
+            colors={['#003f87', '#0055c4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.headerIcon}>
+                <Ionicons name="add-circle" size={48} color="#fff" />
+              </View>
+              <Text style={styles.headerTitle}>Post a Job</Text>
+              <Text style={styles.headerSubtitle}>Find workers to get your work done</Text>
+            </View>
+          </LinearGradient>
+
+          {/* INFO CARD */}
+          <View style={styles.infoCard}>
+            <View style={styles.infoBadge}>
+              <Ionicons name="spark" size={16} color="#fff" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Get Quick Responses</Text>
+              <Text style={styles.infoText}>
+                Detailed posts attract more qualified workers
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </View>
 
           <View style={styles.section}>
@@ -35,6 +61,7 @@ export default function PostScreen() {
           </View>
         </ScrollView>
 
+        {/* BOTTOM NAVIGATION */}
         <View style={styles.nav}>
           <TouchableOpacity style={styles.navItemContainer} onPress={() => handleTabPress('home')}>
             <Ionicons name="home" size={24} color="#999" />
@@ -64,28 +91,77 @@ export default function PostScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
   },
   content: {
     flex: 1,
-    paddingTop: 24,
   },
-  header: {
+  headerGradient: {
     paddingHorizontal: 16,
-    marginBottom: 14,
+    paddingTop: 20,
+    paddingBottom: 28,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  headerIcon: {
+    marginBottom: 12,
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#222',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 4,
   },
   headerSubtitle: {
-    marginTop: 6,
     fontSize: 14,
-    color: '#666',
+    color: '#cce7ff',
+    fontWeight: '500',
+  },
+  infoCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  infoBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#003f87',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#003f87',
+    marginBottom: 2,
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
   },
   section: {
     paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   nav: {
     flexDirection: 'row',
@@ -97,6 +173,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   navItemContainer: {
     alignItems: 'center',

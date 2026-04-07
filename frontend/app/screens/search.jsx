@@ -32,6 +32,7 @@ export default function SearchScreen() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [selectedFilters, setSelectedFilters] = useState({ skill: null, city: null });
+  const [viewedWorkerIds, setViewedWorkerIds] = useState([]);
   
   const cacheRef = useRef(null);
   const pageRef = useRef(0);
@@ -41,8 +42,19 @@ export default function SearchScreen() {
   const ITEMS_PER_PAGE = 10;
   const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
 
-  // Load cache and fetch first batch
+  // Load viewed workers from storage and fetch workers
   useEffect(() => {
+    const loadViewedWorkers = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('viewedWorkerIds');
+        if (stored) {
+          setViewedWorkerIds(JSON.parse(stored));
+        }
+      } catch (error) {
+        console.error('Error loading viewed workers:', error);
+      }
+    };
+    loadViewedWorkers();
     loadWorkers(true);
     
     return () => {
@@ -140,6 +152,12 @@ export default function SearchScreen() {
 
     debounceRef.current = setTimeout(() => {
       const filtered = workers.filter((worker) => {
+        // Exclude viewed workers from search suggestions
+        const workerId = worker.userId?._id || worker._id;
+        if (viewedWorkerIds.includes(workerId)) {
+          return false;
+        }
+
         const query = searchQuery.trim().toLowerCase();
         const skills = worker?.skills?.map(s => s.toLowerCase()) || [];
         const city = worker?.userId?.location?.city?.toLowerCase() || '';
@@ -173,7 +191,25 @@ export default function SearchScreen() {
         clearTimeout(debounceRef.current);
       }
     };
-  }, [searchQuery, workers, selectedFilters]);
+  }, [searchQuery, workers, selectedFilters, viewedWorkerIds]);
+
+  const handleViewWorker = async (worker) => {
+    const workerId = worker.userId?._id || worker._id;
+    try {
+      // Add worker ID to viewed list
+      const updatedViewed = [...viewedWorkerIds, workerId];
+      setViewedWorkerIds(updatedViewed);
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('viewedWorkerIds', JSON.stringify(updatedViewed));
+    } catch (error) {
+      console.error('Error saving viewed worker:', error);
+    }
+    // Navigate to worker profile
+    router.push({
+      pathname: "/screens/worker-profile",
+      params: { workerId }
+    });
+  };
 
   const handleTabPress = (tab) => {
     setActiveTab(tab);
@@ -344,12 +380,7 @@ export default function SearchScreen() {
                             </View>
                             <TouchableOpacity 
                               style={styles.viewBtn}
-                              onPress={() => {
-                                router.push({
-                                  pathname: "/screens/worker-profile",
-                                  params: { workerId: worker.userId?._id || worker._id }
-                                });
-                              }}
+                              onPress={() => handleViewWorker(worker)}
                             >
                               <Text style={styles.viewBtnText}>View</Text>
                             </TouchableOpacity>

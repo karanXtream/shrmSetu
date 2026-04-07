@@ -114,6 +114,7 @@ export default function UserFlow() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [viewedWorkerIds, setViewedWorkerIds] = useState([]);
   const cacheRef = useRef(null);
   const pageRef = useRef(0);
   const abortControllerRef = useRef(null);
@@ -123,6 +124,17 @@ export default function UserFlow() {
 
   // Load cache and fetch first batch
   useEffect(() => {
+    const loadViewedWorkers = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('viewedWorkerIds');
+        if (stored) {
+          setViewedWorkerIds(JSON.parse(stored));
+        }
+      } catch (error) {
+        console.error('Error loading viewed workers:', error);
+      }
+    };
+    loadViewedWorkers();
     loadUsers(true);
     
     return () => {
@@ -211,6 +223,26 @@ export default function UserFlow() {
     BackHandler.exitApp();
   };
 
+  const handleViewWorker = async (worker) => {
+    const workerId = worker.userId?._id || worker._id;
+    try {
+      // Add worker ID to viewed list
+      const updatedViewed = [...viewedWorkerIds, workerId];
+      setViewedWorkerIds(updatedViewed);
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('viewedWorkerIds', JSON.stringify(updatedViewed));
+      // Remove from current list for immediate visual feedback
+      setUsers(prev => prev.filter(w => (w.userId?._id || w._id) !== workerId));
+    } catch (error) {
+      console.error('Error saving viewed worker:', error);
+    }
+    // Navigate to worker profile
+    router.push({
+      pathname: "/screens/worker-profile",
+      params: { workerId }
+    });
+  };
+
   const handleTabPress = (tab) => {
     setActiveTab(tab);
     // Navigate based on tab
@@ -262,7 +294,7 @@ export default function UserFlow() {
 
         {/* ELECTRICIAN JOBS SECTION */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>👥 All Workers ({users.length})</Text>
+          <Text style={styles.sectionTitle}>👥 All Workers ({users.filter(w => !viewedWorkerIds.includes(w.userId?._id || w._id)).length})</Text>
         </View>
 
         {loading ? (
@@ -273,7 +305,7 @@ export default function UserFlow() {
           <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
             <FlatList
               scrollEnabled={false}
-              data={users}
+              data={users.filter(w => !viewedWorkerIds.includes(w.userId?._id || w._id))}
               numColumns={2}
               columnWrapperStyle={{ gap: 16, marginBottom: 20 }}
               keyExtractor={(item) => item._id}
@@ -313,13 +345,7 @@ export default function UserFlow() {
                       </View>
                       <TouchableOpacity 
                         style={styles.applyBtn}
-                        onPress={() => {
-                          console.log("Navigating to worker profile with ID:", worker.userId?._id || worker._id);
-                          router.push({
-                            pathname: "/screens/worker-profile",
-                            params: { workerId: worker.userId?._id || worker._id }
-                          });
-                        }}
+                        onPress={() => handleViewWorker(worker)}
                       >
                         <Text style={styles.applyText}>View Profile</Text>
                       </TouchableOpacity>
