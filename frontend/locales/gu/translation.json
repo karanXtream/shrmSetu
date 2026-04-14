@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "શ્રમ સેતુ",
+    "welcome": "સ્વાગત છે",
+    "hello": "નમસ્કાર"
+  },
+  "home": {
+    "title": "હોમ સ્ક્રીન",
+    "welcome_message": "શ્રમ સેતુમાં આપનું સ્વાગત છે",
+    "subtitle": "અદ્ભુત વિશેષતાઓ અન્વેષણ કરો",
+    "description": "આ અનુવાદપાત્ર ઘટકનું ઉદાહરણ છે"
+  },
+  "language": {
+    "select_language": "ભાષા પસંદ કરો",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "ભાષા ગુજરાતીમાં બદલી"
+  },
+  "role": {
+    "select_role": "તમારી ભૂમિકા પસંદ કરો",
+    "hire": "હું કોઈ કર્મચારી ભાડે લેવા માંગું છું",
+    "work": "હું કામ શોધી રહ્યો છું"
+  },
+  "navigation": {
+    "home": "હોમ",
+    "explore": "અન્વેષણ કરો",
+    "back": "પાછું જાઓ"
+  },
+  "buttons": {
+    "save": "સંગ્રહ કરો",
+    "cancel": "રદ કરો",
+    "continue": "આગળ વધો",
+    "next": "આગલું",
+    "complete": "પૂર્ણ કરો",
+    "previous": "પૂર્વ",
+    "close": "બંધ કરો"
+  },
+  "messages": {
+    "loading": "લોડ થઈ રહ્યું છે...",
+    "uploading": "અપલોડ થઈ રહ્યું છે...",
+    "success": "સફળતા",
+    "error": "ભૂલ",
+    "warning": "ચેતવણી"
+  }
+}

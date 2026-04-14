@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -21,8 +22,16 @@ function RootLayoutNav() {
           animationEnabled: true,
           headerShown: false,
         }}
-        initialRouteName="screens"
+        initialRouteName="splash"
       >
+        {/* Splash/Home Screen - First Screen */}
+        <Stack.Screen 
+          name="splash" 
+          options={{ 
+            headerShown: false,
+            animationEnabled: false,
+          }} 
+        />
         {/* Onboarding screens - NO TABS - starts here */}
         <Stack.Screen 
           name="screens" 
@@ -47,12 +56,30 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
+  const [initialLanguage, setInitialLanguage] = useState('en');
 
-  // Initialize i18next on app startup
+  // Initialize i18next on app startup and detect user role
   useEffect(() => {
     const setupI18n = async () => {
       try {
-        await initializeI18n('en'); // Initialize with English by default
+        // Get user data from AsyncStorage to check their role
+        const userData = await AsyncStorage.getItem('userData');
+        let defaultLanguage = 'en';
+
+        if (userData) {
+          try {
+            const parsedUserData = JSON.parse(userData);
+            // If user is a worker, set default language to Hindi
+            if (parsedUserData.role === 'worker') {
+              defaultLanguage = 'hi';
+            }
+          } catch (parseError) {
+            console.error('Failed to parse user data:', parseError);
+          }
+        }
+
+        setInitialLanguage(defaultLanguage);
+        await initializeI18n(defaultLanguage);
         setI18nReady(true);
       } catch (error) {
         console.error('Failed to initialize i18n:', error);
@@ -70,7 +97,7 @@ export default function RootLayout() {
   return (
     <RootProvider>
       <I18nextProvider i18n={i18n}>
-        <LanguageProvider initialLanguage="en">
+        <LanguageProvider initialLanguage={initialLanguage}>
           <RootLayoutNav />
         </LanguageProvider>
       </I18nextProvider>

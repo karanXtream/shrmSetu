@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "ศ्रम सेतु",
+    "welcome": "การต้อนรับ",
+    "hello": "สวัสดี"
+  },
+  "home": {
+    "title": "หน้าจออักษร",
+    "welcome_message": "ยินดีต้อนรับสู่ศ्रम सेतु",
+    "subtitle": "เริ่มสำรวจคุณสมบัติที่น่าหลงใหล",
+    "description": "นี่คือตัวอย่างของส่วนประกอบที่แปลได้"
+  },
+  "language": {
+    "select_language": "เลือกภาษา",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "เปลี่ยนภาษาเป็นไทย"
+  },
+  "role": {
+    "select_role": "โปรดเลือกบทบาทของคุณ",
+    "hire": "ฉันต้องการจ้างคนงาน",
+    "work": "ฉันกำลังมองหางาน"
+  },
+  "navigation": {
+    "home": "หน้าแรก",
+    "explore": "สำรวจ",
+    "back": "ย้อนกลับ"
+  },
+  "buttons": {
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "continue": "ดำเนินการต่อ",
+    "next": "ถัดไป",
+    "complete": "เสร็จสิ้น",
+    "previous": "ก่อนหน้า",
+    "close": "ปิด"
+  },
+  "messages": {
+    "loading": "กำลังโหลด...",
+    "uploading": "กำลังอัปโหลด...",
+    "success": "สำเร็จ",
+    "error": "ข้อผิดพลาด",
+    "warning": "คำเตือน"
+  }
+}

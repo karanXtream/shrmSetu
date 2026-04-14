@@ -1,4 +1,9 @@
-import apiClient from '../config/axios';
+import apiClient, { API_BASE_URL } from '../config/axios';
+
+/**
+ * Export baseURL for direct API calls
+ */
+export const baseURL = API_BASE_URL;
 
 /**
  * API Service Layer

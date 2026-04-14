@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "श्रम सेतु",
+    "welcome": "வரவேற்கிறோம்",
+    "hello": "ஸ்வாகதம்"
+  },
+  "home": {
+    "title": "முகப்பு திரை",
+    "welcome_message": "श्रम सेतுவிற்கு வரவேற்கிறோம்",
+    "subtitle": "அற்புதமான அம்சங்களை ஆராயுங்கள்",
+    "description": "இது ஒரு மொழிபெயர்க்கக்கூடிய கூறுவதின் உதாரணம்"
+  },
+  "language": {
+    "select_language": "மொழி தேர்ந்தெடுக்கவும்",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "மொழி தமிழுக்கு மாற்றப்பட்டது"
+  },
+  "role": {
+    "select_role": "உங்கள் பாத்திரத்தை தேர்ந்தெடுக்கவும்",
+    "hire": "நான் ஒரு தொழிலாளியை வேலைக்கு எடுக்க விரும்புகிறேன்",
+    "work": "நான் வேலைக்கு தேடுகிறேன்"
+  },
+  "navigation": {
+    "home": "முகப்பு",
+    "explore": "ஆராயுங்கள்",
+    "back": "பின்னே செல்லுங்கள்"
+  },
+  "buttons": {
+    "save": "சேமிக்கவும்",
+    "cancel": "ரத்துசெய்யவும்",
+    "continue": "தொடரவும்",
+    "next": "அடுத்தது",
+    "complete": "முடிக்கவும்",
+    "previous": "முந்தையது",
+    "close": "மூடவும்"
+  },
+  "messages": {
+    "loading": "ஏற்றுதல் நடைபெற்றுக்கொண்டிருக்கிறது...",
+    "uploading": "பதிவேற்றம் நடைபெற்றுக்கொண்டிருக்கிறது...",
+    "success": "வெற்றி",
+    "error": "பிழை",
+    "warning": "எச்சரிக்கை"
+  }
+}

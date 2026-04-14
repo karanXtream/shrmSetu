@@ -46,8 +46,6 @@ export default function Profile() {
     introductoryVideo: "Not available",
     bio: "No bio added yet",
     hourlyRate: "0",
-    rating: 0,
-    totalReviews: 0,
     education: "Not specified",
     isAvailable: false,
   });
@@ -104,8 +102,6 @@ export default function Profile() {
             introductoryVideo: worker.media?.introductoryVideo || "Not available",
             bio: worker.bio || "No bio added yet",
             hourlyRate: worker.hourlyRate?.toString() || "0",
-            rating: worker.rating?.averageRating || 0,
-            totalReviews: worker.rating?.totalReviews || 0,
             education: worker.education || "Not specified",
             isAvailable: worker.isAvailable || false,
           };
@@ -358,35 +354,6 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* RATING & REVIEWS SECTION */}
-        <View style={styles.section}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="star" size={24} color="#ffc107" />
-            <Text style={styles.sectionTitle}>Rating & Reviews</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <View style={styles.ratingContainer}>
-              <View style={styles.ratingBox}>
-                <Text style={styles.ratingScore}>{profileData.rating.toFixed(1)}</Text>
-                <View style={styles.starsContainer}>
-                  {[...Array(5)].map((_, i) => (
-                    <Ionicons
-                      key={i}
-                      name={i < Math.floor(profileData.rating) ? "star" : "star-outline"}
-                      size={16}
-                      color={i < Math.floor(profileData.rating) ? "#ffc107" : "#e5e7eb"}
-                    />
-                  ))}
-                </View>
-              </View>
-              <View style={styles.reviewsBox}>
-                <Text style={styles.reviewsText}>{profileData.totalReviews}</Text>
-                <Text style={styles.reviewsLabel}>Total Reviews</Text>
-              </View>
-            </View>
-          </View>
-        </View>
 
         {/* BIO SECTION */}
         {profileData.bio && profileData.bio !== "No bio added yet" && (
@@ -761,46 +728,6 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     textAlign: "center",
     fontWeight: "500",
-  },
-
-  // Rating Section
-  ratingContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-
-  ratingBox: {
-    alignItems: "center",
-  },
-
-  ratingScore: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#ffc107",
-  },
-
-  starsContainer: {
-    flexDirection: "row",
-    marginTop: 8,
-    gap: 4,
-  },
-
-  reviewsBox: {
-    alignItems: "center",
-  },
-
-  reviewsText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#003f87",
-  },
-
-  reviewsLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginTop: 4,
   },
 
   // Bio Section

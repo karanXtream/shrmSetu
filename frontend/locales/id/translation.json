@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "Setu Kerja",
+    "welcome": "Selamat datang",
+    "hello": "Halo"
+  },
+  "home": {
+    "title": "Layar Beranda",
+    "welcome_message": "Selamat datang di Setu Kerja",
+    "subtitle": "Mulai menjelajahi fitur-fitur menakjubkan",
+    "description": "Ini adalah contoh komponen yang dapat diterjemahkan"
+  },
+  "language": {
+    "select_language": "Pilih Bahasa",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "Bahasa diubah menjadi Indonesia"
+  },
+  "role": {
+    "select_role": "Silakan pilih peran Anda",
+    "hire": "Saya ingin menyewa seorang pekerja",
+    "work": "Saya sedang mencari pekerjaan"
+  },
+  "navigation": {
+    "home": "Beranda",
+    "explore": "Jelajahi",
+    "back": "Kembali"
+  },
+  "buttons": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "continue": "Lanjutkan",
+    "next": "Berikutnya",
+    "complete": "Selesai",
+    "previous": "Sebelumnya",
+    "close": "Tutup"
+  },
+  "messages": {
+    "loading": "Sedang memuat...",
+    "uploading": "Sedang mengunggah...",
+    "success": "Berhasil",
+    "error": "Kesalahan",
+    "warning": "Peringatan"
+  }
+}

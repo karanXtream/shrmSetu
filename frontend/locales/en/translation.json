@@ -1,12 +1,12 @@
 {
   "common": {
-    "app_name": "Shrm Setu",
+    "app_name": "ShrmSetu",
     "welcome": "Welcome",
     "hello": "Hello"
   },
   "home": {
     "title": "Home Screen",
-    "welcome_message": "Welcome to Shrm Setu",
+    "welcome_message": "Welcome to ShrmSetu",
     "subtitle": "Start exploring amazing features",
     "description": "This is an example of a translatable component"
   },
@@ -158,5 +158,54 @@
     "selectFromDevice": "Select a photo from your device",
     "videoMaxDuration": "Maximum 30 seconds",
     "uploadVideoText": "Upload Video (Max 30 sec)"
+  },
+  "learning": {
+    "title": "Learning Videos",
+    "play_video": "Play Video",
+    "cancel": "Cancel",
+    "opening_video": "Opening video...",
+    "play_in_app": "Play in App",
+    "electrical_safety_rules": "Electrical Safety Rules",
+    "electrical_safety_rules_desc": "Learn essential electrical safety rules and practices",
+    "intro_to_plumbing": "Introduction to Plumbing",
+    "intro_to_plumbing_desc": "Comprehensive introduction to plumbing systems",
+    "electrician_basic": "Electrician Basic",
+    "electrician_basic_desc": "Basic concepts for electricians",
+    "electrical_hazards": "Electrical Hazards & Safety Training",
+    "electrical_hazards_desc": "Understanding electrical hazards and safety measures",
+    "mason_general": "Mason General",
+    "mason_general_desc": "General masonry techniques and practices"
+  },
+  "dashboard": {
+    "good_morning": "Good Morning",
+    "good_afternoon": "Good Afternoon",
+    "good_evening": "Good Evening",
+    "available_jobs": "Available Jobs",
+    "refresh": "Refresh",
+    "loading_jobs": "Loading jobs...",
+    "no_jobs_available": "No jobs available",
+    "job_details": "Job Details",
+    "photos": "Photos",
+    "no_photos_available": "No photos available",
+    "location": "Location",
+    "budget": "Budget",
+    "negotiation": "Negotiation",
+    "offer_must_be_equal": "Offer must be equal to or greater than budget",
+    "required_skills": "Required Skills",
+    "amenities": "Amenities",
+    "stay": "Stay",
+    "food": "Food",
+    "description": "Description",
+    "apply_for_job": "Apply for this Job",
+    "application_submitted": "Application submitted successfully!",
+    "apply_success": "Success",
+    "job_not_found": "Job details not found",
+    "apply_error": "Error",
+    "user_not_logged": "User not logged in",
+    "apply_failed": "Failed to apply",
+    "enter_amount_min": "Enter amount (min ₹",
+    "valid_amount": "Valid amount (₹",
+    "must_be_min": "Must be ₹",
+    "or_more": "or more"
   }
 }

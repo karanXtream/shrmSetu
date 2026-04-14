@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "Lao động Setu",
+    "welcome": "Chào mừng",
+    "hello": "Xin chào"
+  },
+  "home": {
+    "title": "Màn hình chính",
+    "welcome_message": "Chào mừng đến với Lao động Setu",
+    "subtitle": "Bắt đầu khám phá các tính năng tuyệt vời",
+    "description": "Đây là ví dụ về một thành phần có thể dịch"
+  },
+  "language": {
+    "select_language": "Chọn ngôn ngữ",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "Đã thay đổi ngôn ngữ thành Tiếng Việt"
+  },
+  "role": {
+    "select_role": "Vui lòng chọn vai trò của bạn",
+    "hire": "Tôi muốn thuê một công nhân",
+    "work": "Tôi đang tìm việc làm"
+  },
+  "navigation": {
+    "home": "Trang chủ",
+    "explore": "Khám phá",
+    "back": "Quay lại"
+  },
+  "buttons": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "continue": "Tiếp tục",
+    "next": "Tiếp theo",
+    "complete": "Hoàn thành",
+    "previous": "Trước",
+    "close": "Đóng"
+  },
+  "messages": {
+    "loading": "Đang tải...",
+    "uploading": "Đang tải lên...",
+    "success": "Thành công",
+    "error": "Lỗi",
+    "warning": "Cảnh báo"
+  }
+}

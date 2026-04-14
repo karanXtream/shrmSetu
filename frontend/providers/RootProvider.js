@@ -2,6 +2,7 @@ import React, { createContext, useContext, useCallback, useState, useEffect } fr
 import { QueryClientProvider } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import queryClient from '../config/queryClient';
+import socketService from '../services/socketService';
 
 /**
  * Root Providers Component
@@ -34,8 +35,16 @@ export const AuthProvider = ({ children }) => {
       const userData = await AsyncStorage.getItem('userData');
       
       if (token && userData) {
-        setUser(JSON.parse(userData));
+        const parsedUserData = JSON.parse(userData);
+        setUser(parsedUserData);
         setIsSignedIn(true);
+        
+        // Connect socket on restore
+        try {
+          await socketService.connect(parsedUserData._id);
+        } catch (socketError) {
+          console.warn('Failed to connect socket on restore:', socketError);
+        }
       }
     } catch (e) {
       if (isStorageUnavailableError(e)) {
@@ -53,6 +62,14 @@ export const AuthProvider = ({ children }) => {
     // Always allow login state in-memory, even if persistence is unavailable.
     setUser(userData);
     setIsSignedIn(true);
+
+    // Connect socket on login
+    try {
+      await socketService.connect(userData._id);
+      console.log('✅ Socket connected for user:', userData._id);
+    } catch (socketError) {
+      console.warn('⚠️ Failed to connect socket:', socketError);
+    }
 
     if (!isAsyncStorageAvailable) {
       return;
@@ -74,6 +91,9 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     setUser(null);
     setIsSignedIn(false);
+    
+    // Disconnect socket on logout
+    socketService.disconnect();
 
     if (!isAsyncStorageAvailable) {
       queryClient.clear();

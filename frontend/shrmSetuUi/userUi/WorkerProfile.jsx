@@ -216,10 +216,6 @@ export default function WorkerProfile() {
             <Ionicons name="chatbubble" size={20} color="#fff" />
             <Text style={styles.contactButtonText}>Send Message</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactButton, styles.bookButton]}>
-            <Ionicons name="calendar" size={20} color="#fff" />
-            <Text style={styles.contactButtonText}>Book Now</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -425,10 +421,6 @@ const styles = StyleSheet.create({
 
   messageButton: {
     backgroundColor: "#0055d4",
-  },
-
-  bookButton: {
-    backgroundColor: "#ff6b00",
   },
 
   contactButtonText: {

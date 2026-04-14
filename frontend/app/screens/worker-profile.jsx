@@ -8,19 +8,104 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  Linking,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
 
 export default function WorkerProfile() {
   const router = useRouter();
-  const { workerId } = useLocalSearchParams();
+  const { workerId, chatData, negotiationAmount } = useLocalSearchParams();
   const [worker, setWorker] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [parsedNegotiationAmount, setParsedNegotiationAmount] = useState('');
+
+  // Read negotiationAmount from AsyncStorage
+  useEffect(() => {
+    const loadNegotiationAmount = async () => {
+      try {
+        console.log('💰 [AMOUNT-LOAD] ========= START ==========');
+        console.log('💰 [AMOUNT-LOAD] Input params - workerId:', workerId, 'negotiationAmount:', negotiationAmount);
+        
+        // Attempt 1: Route parameter (strongest source)
+        console.log('💰 [AMOUNT-LOAD] [1/3] Checking ROUTE PARAM...');
+        const routeAmount = Array.isArray(negotiationAmount)
+          ? negotiationAmount[0]
+          : negotiationAmount;
+        console.log('💰 [AMOUNT-LOAD]   Raw routeAmount:', routeAmount, 'Type:', typeof routeAmount, 'IsArray:', Array.isArray(negotiationAmount));
+
+        if (routeAmount && String(routeAmount).trim() !== '' && String(routeAmount) !== 'null' && String(routeAmount) !== 'undefined') {
+          const finalAmount = String(routeAmount).trim();
+          console.log('✅ [1/3] SUCCESS - Using ROUTE PARAM:', finalAmount);
+          setParsedNegotiationAmount(finalAmount);
+          console.log('💰 [AMOUNT-LOAD] ========= END (SOURCE: ROUTE) ==========');
+          return;
+        }
+        console.log('❌ [1/3] FAILED - Route param is empty/null');
+
+        // Attempt 2: Lookup from saved applications by workerId
+        console.log('💰 [AMOUNT-LOAD] [2/3] Checking SAVED APPLICATIONS...');
+        const savedApplications = await AsyncStorage.getItem('workerApplications');
+        console.log('💰 [AMOUNT-LOAD]   Raw savedApplications:', savedApplications ? 'EXISTS (length:' + savedApplications.length + ')' : 'NULL');
+        
+        if (savedApplications) {
+          const applications = JSON.parse(savedApplications);
+          console.log('💰 [AMOUNT-LOAD]   Parsed applications count:', applications.length);
+          applications.forEach((app, idx) => {
+            console.log(`    [${idx}] id="${app.id}" matches workerId "${workerId}"? ${String(app.id) === String(workerId)}`);
+          });
+          
+          const matched = applications.find((item) => String(item.id) === String(workerId));
+          console.log('💰 [AMOUNT-LOAD]   Matched application found?', matched ? 'YES' : 'NO');
+          
+          if (matched) {
+            console.log('💰 [AMOUNT-LOAD]   Matched app amount:', matched.negotiationAmount, 'Type:', typeof matched.negotiationAmount);
+          }
+          
+          if (matched && matched.negotiationAmount) {
+            const finalAmount = String(matched.negotiationAmount).trim();
+            console.log('✅ [2/3] SUCCESS - Using SAVED APPLICATION:', finalAmount);
+            setParsedNegotiationAmount(finalAmount);
+            console.log('💰 [AMOUNT-LOAD] ========= END (SOURCE: SAVED) ==========');
+            return;
+          }
+        }
+        console.log('❌ [2/3] FAILED - No saved applications or no match');
+
+        // Attempt 3: Fallback temp storage key
+        console.log('💰 [AMOUNT-LOAD] [3/3] Checking TEMP STORAGE...');
+        const storedAmount = await AsyncStorage.getItem('tempNegotiationAmount');
+        console.log('💰 [AMOUNT-LOAD]   Raw storedAmount:', storedAmount ? `"${storedAmount}"` : 'NULL');
+        console.log('💰 [AMOUNT-LOAD]   Trim check:', storedAmount ? `"${String(storedAmount).trim()}"` : 'N/A');
+        
+        if (storedAmount && String(storedAmount).trim() !== '' && String(storedAmount) !== 'null') {
+          const finalAmount = String(storedAmount).trim();
+          console.log('✅ [3/3] SUCCESS - Using TEMP KEY:', finalAmount);
+          setParsedNegotiationAmount(finalAmount);
+          await AsyncStorage.removeItem('tempNegotiationAmount');
+          console.log('💰 [AMOUNT-LOAD] ========= END (SOURCE: TEMP) ==========');
+          return;
+        }
+        console.log('❌ [3/3] FAILED - Temp storage empty');
+
+        // No amount found
+        console.log('❌ [0/3] NO AMOUNT FOUND FROM ANY SOURCE - setting to empty');
+        setParsedNegotiationAmount('');
+        console.log('💰 [AMOUNT-LOAD] ========= END (NO SOURCE) ==========');
+      } catch (e) {
+        console.error('❌ Error load negotiationAmount:', e);
+        setParsedNegotiationAmount('');
+      }
+    };
+    
+    loadNegotiationAmount();
+  }, [workerId, negotiationAmount]);
 
   useEffect(() => {
     const fetchWorkerDetails = async () => {
@@ -63,6 +148,48 @@ export default function WorkerProfile() {
       fetchWorkerDetails();
     }
   }, [workerId]);
+
+  const handleCall = async () => {
+    const phoneNumber = worker?.userId?.phoneNumber;
+    if (!phoneNumber) {
+      Alert.alert("Phone Number", "Phone number is not available for this worker");
+      return;
+    }
+    
+    try {
+      const url = `tel:${phoneNumber}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "Unable to make calls on this device");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to open phone dialer");
+      console.error("Error making call:", error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    const phoneNumber = worker?.userId?.phoneNumber;
+    if (!phoneNumber) {
+      Alert.alert("Phone Number", "Phone number is not available for this worker");
+      return;
+    }
+    
+    try {
+      const url = `sms:${phoneNumber}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "Unable to send SMS on this device");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to open SMS");
+      console.error("Error sending message:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -153,18 +280,6 @@ export default function WorkerProfile() {
             </View>
           )}
         </View>
-
-        {/* RATING */}
-        {worker?.rating && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⭐ Rating</Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={18} color="#ffc107" />
-              <Text style={styles.ratingBig}>{worker.rating.averageRating || 0.0}</Text>
-              <Text style={styles.ratingSmall}>({worker.rating.totalReviews || 0} reviews)</Text>
-            </View>
-          </View>
-        )}
 
         {/* SKILLS */}
         {worker?.skills && worker.skills.length > 0 && (
@@ -275,18 +390,36 @@ export default function WorkerProfile() {
         {/* CONTACT SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📞 Contact & Book</Text>
-          <TouchableOpacity style={styles.contactButton}>
+          <TouchableOpacity style={styles.contactButton} onPress={handleCall}>
             <Ionicons name="call" size={20} color="#fff" />
             <Text style={styles.contactButtonText}>Call {worker?.userId?.phoneNumber || "Worker"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactButton, styles.messageButton]}>
+          <TouchableOpacity style={[styles.contactButton, styles.messageButton]} onPress={handleSendMessage}>
             <Ionicons name="chatbubble" size={20} color="#fff" />
             <Text style={styles.contactButtonText}>Send Message</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactButton, styles.bookButton]}>
-            <Ionicons name="calendar" size={20} color="#fff" />
-            <Text style={styles.contactButtonText}>Book Now</Text>
-          </TouchableOpacity>
+        </View>
+
+        {/* NEGOTIATION AMOUNT SECTION */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>💰 Negotiation Amount</Text>
+          {parsedNegotiationAmount && parsedNegotiationAmount !== '' && parsedNegotiationAmount !== 'null' && !isNaN(parseFloat(parsedNegotiationAmount)) ? (
+            <View style={styles.negotiationAmountBox}>
+              <View style={styles.amountIconContainer}>
+                <Text style={styles.amountIcon}>💵</Text>
+              </View>
+              <View style={styles.amountTextContainer}>
+                <Text style={styles.amountLabel}>Quoted Amount</Text>
+                <Text style={styles.amountValue}>
+                  ₹{parseFloat(parsedNegotiationAmount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.amountUnavailableBox}>
+              <Text style={styles.amountUnavailableText}>Not available</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -327,8 +460,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingTop: 20,
+    paddingVertical: 14,
+    paddingTop: 40,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
@@ -343,7 +476,8 @@ const styles = StyleSheet.create({
 
   photoContainer: {
     alignItems: "center",
-    paddingVertical: 32,
+    paddingVertical: 40,
+    paddingTop: 28,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
@@ -365,7 +499,8 @@ const styles = StyleSheet.create({
   infoSection: {
     backgroundColor: "#fff",
     paddingHorizontal: 18,
-    paddingVertical: 22,
+    paddingVertical: 26,
+    paddingTop: 24,
     borderBottomWidth: 1,
     borderBottomColor: "#e8e8e8",
   },
@@ -407,22 +542,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  ratingBig: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#222",
-  },
-
-  ratingSmall: {
-    fontSize: 14,
-    color: "#999",
-  },
 
   statusBadge: {
     flexDirection: "row",
@@ -493,7 +612,76 @@ const styles = StyleSheet.create({
     color: "#222",
     fontWeight: "600",
   },
+  negotiationAmountBox: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    borderWidth: 2,
+    borderColor: '#003f87',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#003f87',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 
+  amountIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#003f87',
+  },
+
+  amountIcon: {
+    fontSize: 32,
+  },
+
+  amountTextContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+
+  amountLabel: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+
+  amountValue: {
+    fontSize: 28,
+    color: '#003f87',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+
+  amountUnavailableBox: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  amountUnavailableText: {
+    fontSize: 15,
+    color: '#999',
+    fontWeight: '600',
+  },
   bio: {
     fontSize: 15,
     color: "#666",
@@ -544,10 +732,6 @@ const styles = StyleSheet.create({
 
   messageButton: {
     backgroundColor: "#0055d4",
-  },
-
-  bookButton: {
-    backgroundColor: "#ff6b00",
   },
 
   contactButtonText: {

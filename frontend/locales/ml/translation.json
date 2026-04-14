@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "ശ്രമ സേതു",
+    "welcome": "സ്വാഗതം",
+    "hello": "ഹലോ"
+  },
+  "home": {
+    "title": "ഹോം സ്ക്രീൻ",
+    "welcome_message": "ശ്രമ സേതുവിലേക്ക് സ്വാഗതം",
+    "subtitle": "അത്ഭുതകരമായ സവിശേഷതകൾ പര്യവേക്ഷണം ചെയ്യുക",
+    "description": "ഇത് ഒരു വിവർത്തനযോഗ്യ ഘടകത്തിന്റെ ഉദാഹരണമാണ്"
+  },
+  "language": {
+    "select_language": "ഭാഷ തിരഞ്ഞെടുക്കുക",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "ഭാഷ മലയാളത്തിലേക്ക് മാറ്റി"
+  },
+  "role": {
+    "select_role": "നിങ്ങളുടെ പങ്ക് തിരഞ്ഞെടുക്കുക",
+    "hire": "ഞാൻ ഒരു തൊഴിലാളിയെ നിയമിക്കാൻ ആഗ്രഹിക്കുന്നു",
+    "work": "ഞാൻ ജോലി തിരയുകയാണ്"
+  },
+  "navigation": {
+    "home": "ഹോം",
+    "explore": "പര്യവേക്ഷണം ചെയ്യുക",
+    "back": "മടങ്ങി പോകുക"
+  },
+  "buttons": {
+    "save": "സംരക്ഷിക്കുക",
+    "cancel": "റദ്ദാക്കുക",
+    "continue": "തുടരുക",
+    "next": "അടുത്തത്",
+    "complete": "പൂർത്തിയാക്കുക",
+    "previous": "മുമ്പത്തെ",
+    "close": "അടയ്ക്കുക"
+  },
+  "messages": {
+    "loading": "ലോഡ് ചെയ്യുന്നു...",
+    "uploading": "അപ്‌ലോഡ് ചെയ്യുന്നു...",
+    "success": "വിജയം",
+    "error": "പിഴ",
+    "warning": "മുന്നറിപ്പ്"
+  }
+}

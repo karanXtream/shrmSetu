@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "श्रम सेतु",
+    "welcome": "स्वागत आहे",
+    "hello": "नमस्कार"
+  },
+  "home": {
+    "title": "होम स्क्रीन",
+    "welcome_message": "श्रम सेतुमध्ये आपले स्वागत आहे",
+    "subtitle": "अद्भुत वैशिष्ट्ये शोधा",
+    "description": "हे अनुवादयोग्य घटकाचे उदाहरण आहे"
+  },
+  "language": {
+    "select_language": "भाषा निवडा",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "भाषा मराठीमध्ये बदलली गेली"
+  },
+  "role": {
+    "select_role": "आपली भूमिका निवडा",
+    "hire": "मला एक कामगार नियुक्त करायचा आहे",
+    "work": "मी काम शोधत आहे"
+  },
+  "navigation": {
+    "home": "होम",
+    "explore": "एक्सप्लोर करा",
+    "back": "परत जा"
+  },
+  "buttons": {
+    "save": "सेव करा",
+    "cancel": "रद्द करा",
+    "continue": "सुरू ठेवा",
+    "next": "पुढील",
+    "complete": "पूर्ण करा",
+    "previous": "मागील",
+    "close": "बंद करा"
+  },
+  "messages": {
+    "loading": "लोड होत आहे...",
+    "uploading": "अपलोड होत आहे...",
+    "success": "यश",
+    "error": "त्रुटी",
+    "warning": "चेतावणी"
+  }
+}

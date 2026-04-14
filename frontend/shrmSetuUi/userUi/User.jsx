@@ -10,6 +10,7 @@ import {
   FlatList,
   BackHandler,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -31,19 +32,25 @@ const fetchWithTimeout = async (url, timeout = 12000) => {
   }
 };
 
+// Slider images
+const SLIDER_IMAGES = [
+  require("../../assets/images/slidingImg/image1.png"),
+  require("../../assets/images/slidingImg/image2.png"),
+  require("../../assets/images/slidingImg/image3.png"),
+  require("../../assets/images/slidingImg/image4.png"),
+];
+
 const jobCategories = {
   electrician: [
     {
       title: "Electrician - House Wiring",
       location: "Gurgaon, HR",
       img: "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=300&h=150&fit=crop",
-      rating: 4.8,
     },
     {
       title: "Electrical Repairs",
       location: "Delhi, DL",
       img: "https://images.unsplash.com/photo-1581092162562-40038f56c236?w=300&h=150&fit=crop",
-      rating: 4.7,
     },
   ],
   plumber: [
@@ -51,13 +58,11 @@ const jobCategories = {
       title: "Plumber - Pipes & Fittings",
       location: "Mumbai, MH",
       img: "https://images.unsplash.com/photo-1585604201195-e97b96f1a205?w=300&h=150&fit=crop",
-      rating: 4.9,
     },
     {
       title: "Water Tank Installation",
       location: "Bangalore, KA",
       img: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=300&h=150&fit=crop",
-      rating: 4.6,
     },
   ],
   painter: [
@@ -65,13 +70,11 @@ const jobCategories = {
       title: "House Painting",
       location: "Pune, MH",
       img: "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=300&h=150&fit=crop",
-      rating: 4.8,
     },
     {
       title: "Wall Painting & Texture",
       location: "Hyderabad, TG",
       img: "https://images.unsplash.com/photo-1581092162562-40038f56c236?w=300&h=150&fit=crop",
-      rating: 4.7,
     },
   ],
   carpenter: [
@@ -79,13 +82,11 @@ const jobCategories = {
       title: "Carpenter - Doors & Windows",
       location: "Chennai, TN",
       img: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=300&h=150&fit=crop",
-      rating: 4.9,
     },
     {
       title: "Furniture Assembly",
       location: "Jaipur, RJ",
       img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=150&fit=crop",
-      rating: 4.5,
     },
   ],
 };
@@ -96,6 +97,18 @@ const trendingCategories = [
 ];
 
 const quickActions = [];
+
+// Helper function to get greeting based on time
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) {
+    return "Good Morning";
+  } else if (hour >= 12 && hour < 17) {
+    return "Good Afternoon";
+  } else {
+    return "Good Evening";
+  }
+};
 
 // Helper function to truncate text
 const truncateText = (text, maxLength = 40) => {
@@ -115,9 +128,13 @@ export default function UserFlow() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [viewedWorkerIds, setViewedWorkerIds] = useState([]);
+  const [userName, setUserName] = useState("");
+  const [greeting, setGreeting] = useState("");
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const cacheRef = useRef(null);
   const pageRef = useRef(0);
   const abortControllerRef = useRef(null);
+  const sliderInterval = useRef(null);
 
   const ITEMS_PER_PAGE = 10;
   const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
@@ -134,12 +151,40 @@ export default function UserFlow() {
         console.error('Error loading viewed workers:', error);
       }
     };
+
+    const loadUserName = async () => {
+      try {
+        const userJson = await AsyncStorage.getItem('userData');
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          setUserName(user.fullName || user.name || "User");
+        }
+      } catch (error) {
+        console.error('Error loading user name:', error);
+      }
+    };
+
     loadViewedWorkers();
+    loadUserName();
+    setGreeting(getGreeting());
     loadUsers(true);
     
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Slider auto-scroll effect
+  useEffect(() => {
+    sliderInterval.current = setInterval(() => {
+      setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % SLIDER_IMAGES.length);
+    }, 4000); // Auto-scroll every 4 seconds
+
+    return () => {
+      if (sliderInterval.current) {
+        clearInterval(sliderInterval.current);
       }
     };
   }, []);
@@ -231,8 +276,8 @@ export default function UserFlow() {
       setViewedWorkerIds(updatedViewed);
       // Save to AsyncStorage
       await AsyncStorage.setItem('viewedWorkerIds', JSON.stringify(updatedViewed));
-      // Remove from current list for immediate visual feedback
-      setUsers(prev => prev.filter(w => (w.userId?._id || w._id) !== workerId));
+      // Don't remove from state - let the FlatList filter handle display
+      // This ensures worker count stays accurate when navigating back
     } catch (error) {
       console.error('Error saving viewed worker:', error);
     }
@@ -255,46 +300,65 @@ export default function UserFlow() {
     }
   };
 
+  const handleOpenChats = () => {
+    router.push("/screens/chats");
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* TOP SPACING */}
         <View style={{ height: 20 }} />
-
+        
         {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleExitApp}>
             <Ionicons name="arrow-back" size={24} color="#003f87" />
           </TouchableOpacity>
           <Text style={styles.logo}>shrmSetu</Text>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={handleOpenChats}>
+            <Ionicons name="mail" size={24} color="#003f87" />
+          </TouchableOpacity>
+        </View>
+
+        {/* GREETING SECTION */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingText}>{greeting}, <Text style={styles.greetingName}>{userName}</Text></Text>
         </View>
 
         {/* EXTRA GAP AFTER HEADER */}
-        <View style={{ height: 32 }} />
+        <View style={{ height: 12 }} />
 
-        {/* INSPIRATION BANNER */}
-        <View style={styles.bannerWrapper}>
-          <ImageBackground
-            source={require("../../assets/images/uiPhotos/labour_banner.png")}
-            style={styles.inspirationBanner}
-            imageStyle={styles.bannerImage}
-          >
-            <View style={styles.bannerOverlay} />
-            <Text style={styles.inspirationTitle}>
-              आपका समर्पण{"\n"}राष्ट्र को बनाता है।
-            </Text>
-            <View style={styles.quoteContainer}>
-              <View style={styles.quoteBorder} />
-              <Text style={styles.inspirationQuote}>
-                "मेहनत ही कामयाबी की कुंजी है"
-              </Text>
-            </View>
-          </ImageBackground>
+        {/* IMAGE SLIDER */}
+        <View style={styles.sliderContainer}>
+          <View style={styles.sliderWrapper}>
+            <Image
+              source={SLIDER_IMAGES[currentSlideIndex]}
+              style={styles.sliderImage}
+              resizeMode="cover"
+            />
+          </View>
+          {/* Pagination dots */}
+          <View style={styles.dotContainer}>
+            {SLIDER_IMAGES.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  { 
+                    backgroundColor: index === currentSlideIndex ? '#003f87' : '#ddd',
+                    width: index === currentSlideIndex ? 24 : 8,
+                  }
+                ]}
+              />
+            ))}
+          </View>
         </View>
 
         {/* ELECTRICIAN JOBS SECTION */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>👥 All Workers ({users.filter(w => !viewedWorkerIds.includes(w.userId?._id || w._id)).length})</Text>
+          <Text style={styles.sectionTitle}>👥 All Workers ({users.length})</Text>
         </View>
 
         {loading ? (
@@ -305,7 +369,7 @@ export default function UserFlow() {
           <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
             <FlatList
               scrollEnabled={false}
-              data={users.filter(w => !viewedWorkerIds.includes(w.userId?._id || w._id))}
+              data={users}
               numColumns={2}
               columnWrapperStyle={{ gap: 16, marginBottom: 20 }}
               keyExtractor={(item) => item._id}
@@ -468,6 +532,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 28,
     paddingTop: 28,
+  },
+
+  sliderContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+
+  sliderWrapper: {
+    width: "100%",
+    height: 200,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  sliderImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  dotContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 16,
+  },
+
+  dot: {
+    height: 8,
+    borderRadius: 4,
   },
 
   banner: {
@@ -891,5 +991,24 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: "#003f87",
     fontWeight: "bold",
+  },
+
+  greetingSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+  },
+
+  greetingText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#222",
+    letterSpacing: 0.3,
+  },
+
+  greetingName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#003f87",
   },
 });

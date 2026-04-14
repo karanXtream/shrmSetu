@@ -34,20 +34,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="dashboard"
+        name="learning"
         options={{
-          title: 'Dashboard',
+          title: 'Learn',
           tabBarIcon: ({ color }) => (
-            <Ionicons name="dashboard" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="search" size={24} color={color} />
+            <Ionicons name="school" size={24} color={color} />
           ),
         }}
       />
@@ -58,6 +49,18 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="person" size={24} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name=".dashboard"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "ಶ್ರಮ ಸೇತು",
+    "welcome": "ಸ್ವಾಗತ",
+    "hello": "ನಮಸ್ಕಾರ"
+  },
+  "home": {
+    "title": "ಮುಖ್ಯ ಪರದೆ",
+    "welcome_message": "ಶ್ರಮ ಸೇತುಗೆ ಸ್ವಾಗತ",
+    "subtitle": "ಅದ್ಭುತ ವೈಶಿಷ್ಟ್ಯಗಳನ್ನು ಅನ್ವೇಷಿಸಿ",
+    "description": "ಇದು ಅನುವಾದಿಸಬಹುದಾದ ಘಟಕದ ಉದಾಹರಣೆ"
+  },
+  "language": {
+    "select_language": "ಭಾಷೆ ಆರಿಸಿ",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "ಭಾಷೆ ಕನ್ನಡಕ್ಕೆ ಬದಲಾಯಿತು"
+  },
+  "role": {
+    "select_role": "ನಿಮ್ಮ ಪಾತ್ರವನ್ನು ಆರಿಸಿ",
+    "hire": "ನಾನು ಕಾರ್ಮಿಕನನ್ನು ಭಾಡೆಗೆ ಪಡೆಯಲು ಬಯಸುತ್ತೇನೆ",
+    "work": "ನಾನು ಕೆಲಸದ ಹುಡುಕಾಟದಲ್ಲಿದ್ದೇನೆ"
+  },
+  "navigation": {
+    "home": "ಮುಖ್ಯ",
+    "explore": "ಅನ್ವೇಷಿಸಿ",
+    "back": "ಹಿಂದೆ ಹೋಗಿ"
+  },
+  "buttons": {
+    "save": "ಸಂರಕ್ಷಿಸಿ",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "continue": "ಮುಂದುವರಿಸಿ",
+    "next": "ಮುಂದಿನ",
+    "complete": "ಸಂಪೂರ್ಣ ಮಾಡಿ",
+    "previous": "ಹಿಂದಿನ",
+    "close": "ಮುಚ್ಚಿ"
+  },
+  "messages": {
+    "loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+    "uploading": "ಅಪ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+    "success": "ಯಶಸ್ವಿ",
+    "error": "ಲೋಪ",
+    "warning": "ಎಚ್ಚರಿಕೆ"
+  }
+}

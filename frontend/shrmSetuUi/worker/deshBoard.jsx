@@ -11,12 +11,29 @@ import {
   Image,
   Modal,
   Dimensions,
+  TextInput,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "../../hooks/use-translation";
 import * as postService from "../../services/postService";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import socketService from '../../services/socketService';
+import { baseURL } from '../../services/api';
+
+// Helper function to get greeting based on time - returns translation key
+const getGreetingKey = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) {
+    return "dashboard.good_morning";
+  } else if (hour >= 12 && hour < 17) {
+    return "dashboard.good_afternoon";
+  } else {
+    return "dashboard.good_evening";
+  }
+};
 
 export default function Dashboard() {
   const t = useTranslation();
@@ -26,6 +43,16 @@ export default function Dashboard() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [userName, setUserName] = useState('User');
+  const [greetingKey, setGreetingKey] = useState('dashboard.good_evening');
+  const [negotiationAmount, setNegotiationAmount] = useState('');
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+
+  const sliderImages = [
+    require('../../assets/images/sliding2/image1.png'),
+    require('../../assets/images/sliding2/image2.png'),
+    require('../../assets/images/sliding2/image3.png'),
+    require('../../assets/images/sliding2/image4.png'),
+  ];
 
   useEffect(() => {
     const backAction = () => {
@@ -41,9 +68,20 @@ export default function Dashboard() {
     // Load user name
     loadUserName();
     
+    // Set greeting key
+    setGreetingKey(getGreetingKey());
+    
     fetchAllPosts();
 
-    return () => backHandler.remove();
+    // Auto-scroll slider
+    const sliderInterval = setInterval(() => {
+      setCurrentQuoteIndex((prevIndex) => (prevIndex + 1) % sliderImages.length);
+    }, 5000); // Change image every 5 seconds
+
+    return () => {
+      backHandler.remove();
+      clearInterval(sliderInterval);
+    };
   }, []);
 
   const loadUserName = async () => {
@@ -80,8 +118,145 @@ export default function Dashboard() {
 
   const handleJobPress = (job) => {
     setSelectedJob(job);
+    setNegotiationAmount('');
     setModalVisible(true);
   };
+
+  const handleNegotiationChange = (value) => {
+    setNegotiationAmount(value);
+  };
+
+  const isValidNegotiation = () => {
+    if (!negotiationAmount.trim()) return false;
+    const negotiationValue = parseFloat(negotiationAmount);
+    const budgetValue = parseFloat(selectedJob.expectedPrice);
+    const isValid = !isNaN(negotiationValue) && !isNaN(budgetValue) && negotiationValue >= budgetValue;
+    console.log('🔍 Validation check - negotiationValue:', negotiationValue, 'budgetValue:', budgetValue, 'isValid:', isValid);
+    return isValid;
+  };
+
+  const applyForJob = async () => {
+    try {
+      console.log('🔷 [APPLY] ========= APPLY FOR JOB - START ==========');
+      console.log('🔷 [APPLY] selectedJob:', selectedJob?._id, 'negotiationAmount:', negotiationAmount);
+      
+      if (!selectedJob || !selectedJob._id) {
+        console.log('🔷 [APPLY] ❌ No selected job');
+        Alert.alert(t('dashboard.apply_error'), t('dashboard.job_not_found'));
+        return;
+      }
+
+      // Get current user
+      const userJson = await AsyncStorage.getItem('userData');
+      if (!userJson) {
+        console.log('🔷 [APPLY] ❌ No user data');
+        Alert.alert(t('dashboard.apply_error'), t('dashboard.user_not_logged'));
+        return;
+      }
+
+      const currentUser = JSON.parse(userJson);
+      const workerId = currentUser._id;
+      
+      // Amount is optional - if provided, parse it, otherwise send null
+      const normalizedNegotiationAmount = negotiationAmount.trim() 
+        ? parseFloat(negotiationAmount)
+        : null;
+      
+      console.log('🔷 [APPLY] User data loaded:', { workerId, name: currentUser.fullName, amount: normalizedNegotiationAmount });
+
+      // API call to apply with explicit headers
+      console.log('🔷 [APPLY] Calling API POST /api/posts/' + selectedJob._id + '/apply');
+      
+      const response = await axios.post(
+        `${baseURL}/api/posts/${selectedJob._id}/apply`,
+        { workerId },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      console.log('🔷 [APPLY] ✅ API Response success:', response.data?.success);
+
+      if (response.data?.success) {
+        console.log('🔷 [APPLY] ✅ Applied successfully to API');
+
+        // Extract jobPosterId - handle both string ID and object with _id
+        const jobPosterId = typeof selectedJob.userId === 'string' 
+          ? selectedJob.userId 
+          : selectedJob.userId?._id;
+
+        // Send socket message to job poster
+        const messagePayload = {
+          jobPosterId: jobPosterId,
+          senderId: workerId,
+          senderName: currentUser.fullName || currentUser.name,
+          message: `Applied for job in ${selectedJob.location?.city}, ${selectedJob.location?.state}`,
+          negotiationAmount: normalizedNegotiationAmount
+        };
+        console.log('🔷 [APPLY] 📤 Sending socket message:', JSON.stringify(messagePayload));
+        socketService.sendMessage(messagePayload);
+
+        // Also store this application in AsyncStorage so worker can view it in chats
+        try {
+          const jobPosterName = typeof selectedJob.userId === 'string' 
+            ? 'Job Poster'
+            : selectedJob.userId?.fullName || 'Job Poster';
+          
+          const workerApplicationChat = {
+            id: jobPosterId,
+            name: jobPosterName,
+            lastMessage: messagePayload.message,
+            timestamp: new Date(),
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(jobPosterName)}&background=random&color=fff&bold=true`,
+            unread: 0,
+            negotiationAmount: messagePayload.negotiationAmount,
+          };
+          
+          console.log('🔷 [APPLY] 💾 Preparing to save application:', { name: workerApplicationChat.name, amount: workerApplicationChat.negotiationAmount });
+          
+          // Store in AsyncStorage for immediate display
+          const storedChats = await AsyncStorage.getItem('workerApplications');
+          console.log('🔷 [APPLY]   Current storage value:', storedChats ? 'EXISTS' : 'NULL');
+          
+          const applications = storedChats ? JSON.parse(storedChats) : [];
+          console.log('🔷 [APPLY] 📋 Current applications before update:', applications.length, 'items');
+          
+          // Update or add this application
+          const existingIndex = applications.findIndex(app => app.id === jobPosterId);
+          if (existingIndex > -1) {
+            console.log('🔷 [APPLY]   ↻ Updating existing application at index:', existingIndex);
+            applications[existingIndex] = workerApplicationChat;
+          } else {
+            console.log('🔷 [APPLY]   ✨ Adding new application');
+            applications.unshift(workerApplicationChat);
+          }
+          
+          console.log('🔷 [APPLY] 📋 Applications after update:', applications.length, 'items');
+          await AsyncStorage.setItem('workerApplications', JSON.stringify(applications));
+          console.log('🔷 [APPLY] ✅ Saved', applications.length, 'applications to AsyncStorage');
+        } catch (e) {
+          console.error('🔷 [APPLY] ❌ Error storing application:', e);
+        }
+
+        console.log('🔷 [APPLY] ========= SUCCESS - SHOWING ALERT ==========');
+        Alert.alert(t('dashboard.apply_success'), t('dashboard.application_submitted'));
+        setModalVisible(false);
+        setNegotiationAmount('');
+      } else {
+        console.log('🔷 [APPLY] ❌ API returned success: false');
+        Alert.alert(t('dashboard.apply_error'), response.data?.message || t('dashboard.apply_failed'));
+      }
+    } catch (error) {
+      console.error('🔷 [APPLY] ❌ ERROR in applyForJob:', error);
+      console.error('🔷 [APPLY] Error response:', error.response?.data);
+      const errorMsg = error.response?.data?.message || error.message || t('dashboard.apply_failed');
+      Alert.alert(t('dashboard.apply_error'), errorMsg);
+    }
+    console.log('🔷 [APPLY] ========= END ==========');
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -93,58 +268,51 @@ export default function Dashboard() {
 
         {/* GREETING */}
         <View style={styles.section}>
-          <Text style={styles.title}>Hello, {userName}</Text>
-          <Text style={styles.subtitle}>
-            Here is your progress for this month.
-          </Text>
+          <Text style={styles.title}>{t(greetingKey)}, <Text style={styles.titleName}>{userName}</Text></Text>
         </View>
 
-        {/* HERO CARD */}
-        <LinearGradient
-          colors={["#0040a1", "#0056d2"]}
-          style={styles.heroCard}
-        >
-          {/* SVG Background */}
-          <View style={styles.heroCardBackground}>
-            <Text style={styles.heroCardBgSvg}>
-              🔧
-            </Text>
+        {/* IMAGE SLIDER */}
+        <View style={styles.quotesSliderContainer}>
+          <View style={styles.quotesSlider}>
+            <Image
+              source={sliderImages[currentQuoteIndex]}
+              style={styles.quoteImage}
+              resizeMode="cover"
+            />
           </View>
-          
-          <View style={styles.heroHeader}>
-            <View style={styles.heroIconBox}>
-              <Ionicons name="hammer" size={24} color="#fff" />
-            </View>
-            <Text style={styles.heroLabel}>TOTAL WORK DONE</Text>
+          {/* Dot Indicators */}
+          <View style={styles.quoteDots}>
+            {sliderImages.map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.quoteDot,
+                  index === currentQuoteIndex && styles.quoteDotActive,
+                ]}
+                onPress={() => setCurrentQuoteIndex(index)}
+              />
+            ))}
           </View>
-          <View style={styles.heroValueContainer}>
-            <Text style={styles.heroValue}>124</Text>
-            <Text style={styles.heroSub}>tasks</Text>
-          </View>
-          <View style={styles.heroBadge}>
-            <Ionicons name="trending-up" size={14} color="#fff" />
-            <Text style={styles.heroBadgeText}>+12% from last month</Text>
-          </View>
-        </LinearGradient>
+        </View>
         
         {/* POSTED JOBS SECTION */}
         <View style={styles.jobsSection}>
           <View style={styles.jobsSectionHeader}>
-            <Text style={styles.jobsSectionTitle}>Available Jobs</Text>
+            <Text style={styles.jobsSectionTitle}>{t('dashboard.available_jobs')}</Text>
             <TouchableOpacity onPress={fetchAllPosts}>
-              <Text style={styles.refreshButton}>Refresh</Text>
+              <Text style={styles.refreshButton}>{t('dashboard.refresh')}</Text>
             </TouchableOpacity>
           </View>
 
           {postsLoading ? (
             <View style={styles.loadingJobsContainer}>
               <ActivityIndicator size="small" color="#003f87" />
-              <Text style={styles.loadingJobsText}>Loading jobs...</Text>
+              <Text style={styles.loadingJobsText}>{t('dashboard.loading_jobs')}</Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.emptyJobsContainer}>
               <Ionicons name="briefcase-outline" size={32} color="#999" />
-              <Text style={styles.emptyJobsText}>No jobs available</Text>
+              <Text style={styles.emptyJobsText}>{t('dashboard.no_jobs_available')}</Text>
             </View>
           ) : (
             <FlatList
@@ -171,61 +339,43 @@ export default function Dashboard() {
                   ) : (
                     <View style={styles.jobPhotoPlaceholder}>
                       <Ionicons name="image-outline" size={40} color="#ccc" />
-                      <Text style={styles.placeholderText}>No photo available</Text>
                     </View>
                   )}
 
-                  <View style={styles.jobHeader}>
-                    <View style={styles.jobTitleContainer}>
-                      <Text style={styles.jobTitle} numberOfLines={2}>
-                        {item.location?.city && item.location?.state ? `${item.location.city}, ${item.location.state}` : 'Job Post'}
-                      </Text>
-                      <Text style={styles.jobSubtitle} numberOfLines={1}>
-                        {item.requiredSkills?.slice(0, 2).join(', ') || 'Various skills'}
-                      </Text>
+                  {/* CARD INFO */}
+                  <View style={styles.jobCardInfo}>
+                    {/* TOP ROW: Location + Budget */}
+                    <View style={styles.jobCardHeader}>
+                      <View style={styles.locationBudget}>
+                        <View style={styles.locationInfo}>
+                          <Ionicons name="location" size={14} color="#ef4444" />
+                          <Text style={styles.jobCity} numberOfLines={1}>
+                            {item.location?.city || 'Location'}
+                          </Text>
+                        </View>
+                        <Text style={styles.jobPin}>{item.location?.pin}</Text>
+                      </View>
+                      <View style={styles.priceTag}>
+                        <Text style={styles.priceTagCurrency}>₹</Text>
+                        <Text style={styles.priceTagAmount}>{item.expectedPrice || '0'}</Text>
+                      </View>
                     </View>
-                    <View style={styles.jobBudget}>
-                      <Text style={styles.budgetCurrency}>₹</Text>
-                      <Text style={styles.budgetAmount}>{item.expectedPrice || '0'}</Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.jobDetails}>
+                    {/* SKILLS TAGS */}
                     {item.requiredSkills && item.requiredSkills.length > 0 && (
-                      <View style={styles.skillsContainer}>
-                        {item.requiredSkills.slice(0, 3).map((skill, index) => (
-                          <View key={index} style={styles.skillTag}>
-                            <Text style={styles.skillText}>{skill}</Text>
+                      <View style={styles.jobSkillsRow}>
+                        {item.requiredSkills.slice(0, 2).map((skill, index) => (
+                          <View key={index} style={styles.jobSkillBadge}>
+                            <Text style={styles.jobSkillBadgeText}>{skill}</Text>
                           </View>
                         ))}
-                        {item.requiredSkills.length > 3 && (
-                          <View style={styles.skillTag}>
-                            <Text style={styles.skillText}>+{item.requiredSkills.length - 3}</Text>
+                        {item.requiredSkills.length > 2 && (
+                          <View style={styles.jobSkillBadge}>
+                            <Text style={styles.jobSkillBadgeText}>+{item.requiredSkills.length - 2}</Text>
                           </View>
                         )}
                       </View>
                     )}
-                  </View>
-
-                  <View style={styles.jobFooter}>
-                    <View style={styles.amenitiesContainer}>
-                      {item.amenities?.stayAvailable && (
-                        <View style={styles.amenityBadge}>
-                          <Ionicons name="home" size={12} color="#10b981" />
-                          <Text style={styles.amenityText}>Stay</Text>
-                        </View>
-                      )}
-                      {item.amenities?.foodAvailable && (
-                        <View style={styles.amenityBadge}>
-                          <Ionicons name="restaurant" size={12} color="#f59e0b" />
-                          <Text style={styles.amenityText}>Food</Text>
-                        </View>
-                      )}
-                      <View style={styles.amenityBadge}>
-                        <Ionicons name="location" size={12} color="#ef4444" />
-                        <Text style={styles.amenityText}>{item.location?.pin}</Text>
-                      </View>
-                    </View>
                   </View>
                 </TouchableOpacity>
               )}
@@ -258,7 +408,7 @@ export default function Dashboard() {
             >
               <Ionicons name="close" size={28} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.detailsTitle}>Job Details</Text>
+            <Text style={styles.detailsTitle}>{t('dashboard.job_details')}</Text>
             <View style={{ width: 28 }} />
           </LinearGradient>
 
@@ -293,14 +443,14 @@ export default function Dashboard() {
                   />
                   <View style={styles.photoCount}>
                     <Text style={styles.photoCountText}>
-                      {selectedJob.workPhotos.length} Photos
+                      {selectedJob.workPhotos.length} {t('dashboard.photos')}
                     </Text>
                   </View>
                 </View>
               ) : (
                 <View style={styles.photoCarouselEmpty}>
                   <Ionicons name="image-outline" size={60} color="#ccc" />
-                  <Text style={{ fontSize: 14, color: '#999', marginTop: 8 }}>No photos available</Text>
+                  <Text style={{ fontSize: 14, color: '#999', marginTop: 8 }}>{t('dashboard.no_photos_available')}</Text>
                 </View>
               )}
 
@@ -309,7 +459,7 @@ export default function Dashboard() {
                 <View style={styles.cardHeader}>
                   <Ionicons name="location" size={20} color="#003f87" />
                   <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.cardTitle}>Location</Text>
+                    <Text style={styles.cardTitle}>{t('dashboard.location')}</Text>
                     <Text style={styles.cardValue}>
                       {selectedJob.location?.city}, {selectedJob.location?.state} - {selectedJob.location?.pin}
                     </Text>
@@ -325,15 +475,53 @@ export default function Dashboard() {
                 <View style={styles.cardHeader}>
                   <Ionicons name="cash" size={20} color="#10b981" />
                   <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.cardTitle}>Budget</Text>
+                    <Text style={styles.cardTitle}>{t('dashboard.budget')}</Text>
                     <Text style={styles.cardValue}>₹{selectedJob.expectedPrice}</Text>
                   </View>
                 </View>
               </View>
 
+              {/* NEGOTIATION */}
+              <View style={styles.detailCard}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="swap-horizontal" size={20} color="#003f87" />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={styles.cardTitle}>{t('dashboard.negotiation')}</Text>
+                    <Text style={styles.cardSubtitle}>{t('dashboard.offer_must_be_equal')}</Text>
+                  </View>
+                </View>
+                <View style={styles.negotiationContainer}>
+                  <View style={[styles.negotiationInputGroup, isValidNegotiation() && styles.negotiationInputValid]}>
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <TextInput
+                      style={styles.negotiationInput}
+                      placeholder={`${t('dashboard.enter_amount_min')}${selectedJob.expectedPrice})`}
+                      placeholderTextColor="#999"
+                      keyboardType="decimal-pad"
+                      value={negotiationAmount}
+                      onChangeText={handleNegotiationChange}
+                    />
+                    {negotiationAmount && (
+                      <Ionicons 
+                        name={isValidNegotiation() ? "checkmark-circle" : "close-circle"} 
+                        size={20} 
+                        color={isValidNegotiation() ? "#10b981" : "#ef4444"} 
+                      />
+                    )}
+                  </View>
+                  {negotiationAmount && (
+                    <Text style={[styles.validationText, isValidNegotiation() ? styles.validationValid : styles.validationInvalid]}>
+                      {isValidNegotiation() 
+                        ? `✓ ${t('dashboard.valid_amount')}${parseFloat(negotiationAmount).toFixed(2)})` 
+                        : `✗ ${t('dashboard.must_be_min')}${selectedJob.expectedPrice} ${t('dashboard.or_more')}`}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
               {/* REQUIRED SKILLS */}
               <View style={styles.detailCard}>
-                <Text style={styles.cardTitle}>Required Skills</Text>
+                <Text style={styles.cardTitle}>{t('dashboard.required_skills')}</Text>
                 <View style={styles.skillsGrid}>
                   {selectedJob.requiredSkills && selectedJob.requiredSkills.map((skill, index) => (
                     <View key={index} style={styles.detailSkillTag}>
@@ -345,15 +533,15 @@ export default function Dashboard() {
 
               {/* AMENITIES */}
               <View style={styles.detailCard}>
-                <Text style={styles.cardTitle}>Amenities</Text>
+                <Text style={styles.cardTitle}>{t('dashboard.amenities')}</Text>
                 <View style={styles.amenitiesGrid}>
                   <View style={[styles.amenityItem, selectedJob.amenities?.stayAvailable && styles.amenityActive]}>
                     <Ionicons name="home" size={24} color={selectedJob.amenities?.stayAvailable ? "#10b981" : "#ccc"} />
-                    <Text style={styles.amenityItemText}>Stay</Text>
+                    <Text style={styles.amenityItemText}>{t('dashboard.stay')}</Text>
                   </View>
                   <View style={[styles.amenityItem, selectedJob.amenities?.foodAvailable && styles.amenityActive]}>
                     <Ionicons name="restaurant" size={24} color={selectedJob.amenities?.foodAvailable ? "#f59e0b" : "#ccc"} />
-                    <Text style={styles.amenityItemText}>Food</Text>
+                    <Text style={styles.amenityItemText}>{t('dashboard.food')}</Text>
                   </View>
                 </View>
               </View>
@@ -361,14 +549,17 @@ export default function Dashboard() {
               {/* DESCRIPTION */}
               {selectedJob.description && (
                 <View style={styles.detailCard}>
-                  <Text style={styles.cardTitle}>Description</Text>
+                  <Text style={styles.cardTitle}>{t('dashboard.description')}</Text>
                   <Text style={styles.descriptionText}>{selectedJob.description}</Text>
                 </View>
               )}
 
               {/* APPLY BUTTON */}
-              <TouchableOpacity style={styles.applyButtonLarge}>
-                <Text style={styles.applyButtonLargeText}>Apply for this Job</Text>
+              <TouchableOpacity 
+                style={styles.applyButtonLarge}
+                onPress={applyForJob}
+              >
+                <Text style={styles.applyButtonLargeText}>{t('dashboard.apply_for_job')}</Text>
               </TouchableOpacity>
 
               <View style={{ height: 40 }} />
@@ -407,15 +598,63 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: "700",
-    color: "#000",
+    color: "#222",
     marginBottom: 4,
+  },
+
+  titleName: {
+    color: "#003f87",
+    fontWeight: "700",
   },
 
   subtitle: {
     fontSize: 14,
     color: "#666",
+  },
+
+  quotesSliderContainer: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+  },
+
+  quotesSlider: {
+    width: "100%",
+    height: 220,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#f0f0f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+
+  quoteImage: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+  },
+
+  quoteDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+
+  quoteDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ccc",
+  },
+
+  quoteDotActive: {
+    backgroundColor: "#003f87",
+    width: 24,
   },
 
   heroCard: {
@@ -882,6 +1121,64 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  cardSubtitle: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+
+  negotiationContainer: {
+    marginTop: 12,
+    gap: 12,
+  },
+
+  negotiationInputGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+    borderRadius: 8,
+    backgroundColor: "#fafafa",
+    paddingHorizontal: 12,
+    height: 48,
+    gap: 8,
+  },
+
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#003f87",
+  },
+
+  negotiationInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#000",
+    padding: 0,
+  },
+
+  negotiationInputValid: {
+    borderColor: "#10b981",
+    backgroundColor: "#f0fdf4",
+  },
+
+  validationText: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+
+  validationValid: {
+    color: "#10b981",
+  },
+
+  validationInvalid: {
+    color: "#ef4444",
+  },
+
   skillsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -930,34 +1227,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#555",
     lineHeight: 20,
-  },
-
-  jobPhoto: {
-    width: "100%",
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 12,
-    resizeMode: "cover",
-  },
-
-  jobPhotoContainer: {
-    width: "100%",
-    height: 200,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    overflow: "hidden",
-    marginBottom: 0,
-  },
-
-  jobPhotoPlaceholder: {
-    width: "100%",
-    height: 200,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    marginBottom: 0,
   },
 
   placeholderText: {
@@ -1048,6 +1317,102 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 3,
+  },
+
+  jobPhotoContainer: {
+    width: "100%",
+    height: 160,
+    overflow: "hidden",
+    backgroundColor: "#f0f0f0",
+  },
+
+  jobPhoto: {
+    width: "100%",
+    height: 160,
+    resizeMode: "cover",
+  },
+
+  jobPhotoPlaceholder: {
+    width: "100%",
+    height: 160,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  jobCardInfo: {
+    padding: 12,
+    gap: 10,
+  },
+
+  jobCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  locationBudget: {
+    flex: 1,
+    gap: 6,
+  },
+
+  locationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  jobCity: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
+  },
+
+  jobPin: {
+    fontSize: 11,
+    color: "#666",
+    fontWeight: "500",
+  },
+
+  priceTag: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    backgroundColor: "#e8f5e9",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 2,
+  },
+
+  priceTagCurrency: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#10b981",
+  },
+
+  priceTagAmount: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#10b981",
+  },
+
+  jobSkillsRow: {
+    flexDirection: "row",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+
+  jobSkillBadge: {
+    backgroundColor: "#e8f0f8",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+
+  jobSkillBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#003f87",
   },
 
   jobHeader: {

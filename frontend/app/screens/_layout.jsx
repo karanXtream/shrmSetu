@@ -31,6 +31,22 @@ export default function ScreensLayout() {
         name="post" 
         options={{ headerShown: false }} 
       />
+      <Stack.Screen 
+        name="worker-profile" 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="chat-detail" 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="chats" 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="search" 
+        options={{ headerShown: false }} 
+      />
     </Stack>
   );
 }

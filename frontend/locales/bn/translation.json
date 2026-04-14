@@ -1,0 +1,55 @@
+{
+  "common": {
+    "app_name": "শ্রম সেতু",
+    "welcome": "স্বাগতম",
+    "hello": "হ্যালো"
+  },
+  "home": {
+    "title": "হোম স্ক্রিন",
+    "welcome_message": "শ্রম সেতুতে আপনাকে স্বাগতম",
+    "subtitle": "অসাধারণ বৈশিষ্ট্যগুলি অন্বেষণ করুন",
+    "description": "এটি একটি অনুবাদযোগ্য উপাদানের উদাহরণ"
+  },
+  "language": {
+    "select_language": "ভাষা নির্বাচন করুন",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "bengali": "Bengali (বাংলা)",
+    "telugu": "Telugu (తెలుగు)",
+    "marathi": "Marathi (मराठी)",
+    "tamil": "Tamil (தமிழ்)",
+    "gujarati": "Gujarati (ગુજરાતી)",
+    "kannada": "Kannada (ಕನ್ನಡ)",
+    "malayalam": "Malayalam (മലയാളം)",
+    "thai": "Thai (ไทย)",
+    "vietnamese": "Vietnamese (Tiếng Việt)",
+    "indonesian": "Indonesian (Bahasa Indonesia)",
+    "language_selected": "ভাষা বাংলায় পরিবর্তিত হয়েছে"
+  },
+  "role": {
+    "select_role": "আপনার ভূমিকা নির্বাচন করুন",
+    "hire": "আমি একজন কর্মী নিয়োগ করতে চাই",
+    "work": "আমি কাজের জন্য খুঁজছি"
+  },
+  "navigation": {
+    "home": "হোম",
+    "explore": "অন্বেষণ করুন",
+    "back": "ফিরে যান"
+  },
+  "buttons": {
+    "save": "সংরক্ষণ করুন",
+    "cancel": "বাতিল করুন",
+    "continue": "চালিয়ে যান",
+    "next": "পরবর্তী",
+    "complete": "সম্পূর্ণ করুন",
+    "previous": "পূর্ববর্তী",
+    "close": "বন্ধ করুন"
+  },
+  "messages": {
+    "loading": "লোড হচ্ছে...",
+    "uploading": "আপলোড হচ্ছে...",
+    "success": "সফল",
+    "error": "ত্রুটি",
+    "warning": "সতর্কতা"
+  }
+}
