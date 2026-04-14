@@ -268,6 +268,46 @@ export default function UserFlow() {
     BackHandler.exitApp();
   };
 
+  const handleRefresh = () => {
+    // Reset to initial state and fetch fresh data
+    setPage(0);
+    pageRef.current = 0;
+    setUsers([]);
+    setHasMore(true);
+    cacheRef.current = null;
+    // Trigger fetch with isInitial true
+    const loadWorkers = async () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      try {
+        setLoading(true);
+        abortControllerRef.current = new AbortController();
+        const response = await fetchWithTimeout(
+          `${API_URL}/api/workers?skip=0&limit=${ITEMS_PER_PAGE}`,
+          12000
+        );
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.data)) {
+          const allWorkers = data.data;
+          cacheRef.current = { data: allWorkers, timestamp: Date.now() };
+          setUsers(allWorkers.slice(0, ITEMS_PER_PAGE));
+          setHasMore(allWorkers.length > ITEMS_PER_PAGE);
+          pageRef.current = 0;
+          setPage(0);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Error refreshing workers:', error);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadWorkers();
+  };
+
   const handleViewWorker = async (worker) => {
     const workerId = worker.userId?._id || worker._id;
     try {
@@ -317,6 +357,9 @@ export default function UserFlow() {
           </TouchableOpacity>
           <Text style={styles.logo}>shrmSetu</Text>
           <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={handleRefresh} style={{ marginRight: 12 }}>
+            <Ionicons name="refresh" size={20} color="#003f87" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleOpenChats}>
             <Ionicons name="mail" size={24} color="#003f87" />
           </TouchableOpacity>
@@ -359,6 +402,9 @@ export default function UserFlow() {
         {/* ELECTRICIAN JOBS SECTION */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>👥 All Workers ({users.length})</Text>
+          <TouchableOpacity onPress={handleRefresh}>
+            <Text style={{ fontSize: 14, color: "#003f87", fontWeight: "600" }}>Refresh</Text>
+          </TouchableOpacity>
         </View>
 
         {loading ? (
